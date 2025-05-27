@@ -4,12 +4,9 @@
 
 #include <math.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include "SGL.h"
-#include <SDL3/SDL.h>
 
-// Local constants
-static const size_t INITIAL_LIST_CAPACITY = 4;
+// Engine constants
 static const int VERTEX_ARRAY_SIZE = 4;
 static const int TRIANGLE_ARRAY_SIZE = 6;
 
@@ -19,70 +16,6 @@ float SGL_DegToRad(float degrees) {
 
 float SGL_Cot(float degrees) {
     return 1.0f * tan(SGL_DegToRad(degrees));
-}
-
-// SGL_List
-SGL_List* SGL_CreateList() {
-    SGL_List *list = malloc(sizeof(SGL_List));
-    list->size = 0;
-    list->capacity = INITIAL_LIST_CAPACITY;
-    list->items = malloc(sizeof(void*) * list->capacity);
-    return list;
-}
-
-SGL_List* SGL_CreateListFromArray(void **array, size_t count) {
-    SGL_List *list = SGL_CreateList();
-    for (size_t i = 0; i < count; i++) {
-        SGL_ListAdd(list, array[i]);
-    }
-    return list;
-}
-
-void SGL_ListAdd(SGL_List *list, void *item) {
-    if (list->size == list->capacity) {
-        list->capacity *= 2;
-        list->items = realloc(list->items, sizeof(void*) * list->capacity);
-    }
-    list->items[list->size++] = item;
-}
-
-void* SGL_ListGet(SGL_List *list, size_t index) {
-    if (index >= list->size) return NULL;
-    return list->items[index];
-}
-
-size_t SGL_ListIndexOf(SGL_List *list, void *item) {
-    for (size_t i = 0; i < list->size; i++) {
-        if (list->items[i] == item) {
-            return i;
-        }
-    }
-}
-
-void SGL_ListRemove(SGL_List *list, size_t index) {
-    if (index >= list->size) return;
-    for (size_t i = index; i < list->size - 1; i++) {
-        list->items[i] = list->items[i + 1];
-    }
-    list->size--;
-}
-
-void** SGL_ListToArray(SGL_List *list) {
-    if (list == NULL || list->size == 0) return NULL;
-
-    void **array = malloc(sizeof(void*) * list->size);
-    if (!array) return NULL;
-
-    for (size_t i = 0; i < list->size; i++) {
-        array[i] = list->items[i];
-    }
-
-    return array;
-}
-
-void SGL_FreeList(SGL_List *list) {
-    free(list->items);
-    free(list);
 }
 
 // SGL_Mesh
@@ -165,6 +98,13 @@ static void multiply_matrix_with_vertex(float m[16], size_t vertex_index, float 
     vertices_data[vertex_index + 1] = x * m[1] + y * m[5] + z * m[9] + w * m[13];
     vertices_data[vertex_index + 2] = x * m[2] + y * m[6] + z * m[10] + w * m[14];
     vertices_data[vertex_index + 3] = x * m[3] + y * m[7] + z * m[11] + w * m[15];
+}
+
+static void multiply_matrix_with_vertices(float m[16], float vertices_data[], size_t vertices_size) {
+    for (size_t i = 0; i < vertices_size; i++)
+    {
+        multiply_matrix_with_vertex(m, i, vertices_data);
+    }
 }
 
 static void multiply_4x4_matrix(float a[16], float b[16], float out[16]) {
@@ -387,6 +327,10 @@ void SGL_FreeRenderer(SGL_Renderer *renderer) {
     free(renderer);
 }
 
+/**
+ * Step 1 (Local space to world space): Converts OOP-like structure into 2 flat arrays (vertices and triangles) for faster computing in the pipeline.
+ * Also converts vertices coordinates to world coordinates since all reference with meshes are lost after this.
+ */
 static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices, size_t *size_vertices, float **out_triangles, size_t *size_triangles) {
     SGL_List *vertices = SGL_CreateList();
     SGL_List *triangles = SGL_CreateList();
@@ -442,6 +386,10 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
         (*out_vertices)[vertex_index + 2] = vertex_data[2];
         (*out_vertices)[vertex_index + 3] = vertex_data[3];
     }
+}
+
+static void cull(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
+    // TODO
 }
 
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {

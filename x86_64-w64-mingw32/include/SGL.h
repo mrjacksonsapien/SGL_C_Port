@@ -2,7 +2,7 @@
 Javascript SGL library ported to C with SDL3. Goal here is again to bring more 
 performance since the pipeline is 100% sequential (No GPU) and running it in a 
 browser slows things down a bit. This port tries to stay as close as possible to the original
-OOP structure but some extra things were added to make it work on C (eg: the SGL_List struct).
+OOP structure but some extra things were added to make it work on C (eg: The data structures).
 Also notice how now every "class" and "methods" have SGL_ in front. This was used to avoid mixing up
 with other libraries like SDL for example. Methods name are structured as follow SGL_[Name of the class][Method name]
 except for constructors where it goes as follow: SGL_Create[Name of the class]/SGL_Free[Name of the class].
@@ -19,7 +19,8 @@ to use it for other targets of SDL3)
 #ifndef SGL_h
 #define SGL_h
 
-#include <SDL3/SDL_events.h>
+#include <SDL3/SDL.h>
+#include <SGL_List.h>
 
 // Utilities functions (Originally SGLMath)
 
@@ -34,25 +35,6 @@ float SGL_DegToRad(float degrees);
  * \returns Cotangent
  */
 float SGL_Cot(float degrees);
-
-/**
- * Resizable array used for any type. Warning: Putting different types of data can work
- * but it is recommended to stick with only one.
- */
-typedef struct {
-    void **items;
-    size_t size;
-    size_t capacity;
-} SGL_List;
-
-SGL_List* SGL_CreateList();
-SGL_List* SGL_CreateListFromArray(void **array, size_t count);
-void SGL_ListAdd(SGL_List *list, void *item);
-void* SGL_ListGet(SGL_List *list, size_t index);
-size_t SGL_ListIndexOf(SGL_List *list, void *item);
-void SGL_ListRemove(SGL_List *list, size_t index);
-void** SGL_ListToArray(SGL_List *list);
-void SGL_FreeList(SGL_List *list);
 
 typedef struct {
     float x;
