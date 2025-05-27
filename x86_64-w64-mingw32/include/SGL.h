@@ -12,15 +12,14 @@ have to handle a few SDL events yourself in the while loop. The goal here was re
 as much as possible from the SDL library but sadly some things still need to be done. Anyways everything is in the demo.
 
 NOTICE: The MakeFile compiles this code for SDL3 x86_64-w64-mingw32.
-You can change the target as long as it's SDL3 (You can basically detach the SGL.h and SGL.c file from this project
-to use it for other targets of SDL3)
+You can change the target as long as you include SDL3
 */
 
 #ifndef SGL_h
 #define SGL_h
 
 #include <SDL3/SDL.h>
-#include <SGL_List.h>
+#include "SGL_List.h"
 
 // Utilities functions (Originally SGLMath)
 
