@@ -25,7 +25,7 @@ void SGL_HashMapResize(SGL_HashMap *map, size_t new_capacity) {
         if (bucket != NULL) {
             for (size_t j = 0; j < bucket->size; ++j) {
                 SGL_MapEntry *entry = (SGL_MapEntry*)SGL_ListGet(bucket, j);
-                SGL_MapPut(map, entry->key, entry->value); // Rehash & insert
+                SGL_HashMapPut(map, entry->key, entry->value); // Rehash & insert
                 free(entry); // Free old entry (SGL_MapPut allocates new one)
             }
             SGL_FreeList(bucket);
@@ -37,7 +37,7 @@ void SGL_HashMapResize(SGL_HashMap *map, size_t new_capacity) {
 
 void SGL_HashMapPut(SGL_HashMap *map, void *key, void *value) {
     if ((float)map->size / map->capacity > 0.75f) { // update capacity
-        SGL_MapResize(map, map->capacity * 2);
+        SGL_HashMapResize(map, map->capacity * 2);
     }
 
     size_t index = map->hash_fn(key) % map->capacity;

@@ -2,9 +2,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#include <math.h>
-#include <stdlib.h>
 #include "SGL.h"
+
+const SGL_Color SGL_RED = (SGL_Color){.r = 1.0f, .g = 0.0f, .b = 0.0f};
+const SGL_Color SGL_GREEN = (SGL_Color){.r = 0.0f, .g = 1.0f, .b = 0.0f};
+const SGL_Color SGL_BLUE = (SGL_Color){.r = 0.0f, .g = 0.0f, .b = 1.0f};
 
 // Engine constants
 static const int VERTEX_ARRAY_SIZE = 4;
@@ -38,33 +40,49 @@ SGL_Mesh* SGL_CreateMesh(SGL_List *vertices, SGL_List *triangles, SGL_Vector3 po
 
 // Mesh template
 SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
-    SGL_List *vertices = {
-        &(SGL_Vertex){.position = (SGL_Vector3){-1, 1, -1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){1, 1, -1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){1, -1, -1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){-1, -1, -1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){-1, 1, 1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){1, 1, 1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){1, -1, 1}},
-        &(SGL_Vertex){.position = (SGL_Vector3){-1, -1, 1}}
+    SGL_Vertex vertices[] = {
+        {.position = (SGL_Vector3){-1, 1, -1}},
+        {.position = (SGL_Vector3){1, 1, -1}},
+        {.position = (SGL_Vector3){1, -1, -1}},
+        {.position = (SGL_Vector3){-1, -1, -1}},
+        {.position = (SGL_Vector3){-1, 1, 1}},
+        {.position = (SGL_Vector3){1, 1, 1}},
+        {.position = (SGL_Vector3){1, -1, 1}},
+        {.position = (SGL_Vector3){-1, -1, 1}}
     };
 
-    SGL_Triangle *triangles = {
-        &(SGL_Triangle){.vertex1 = vertices[0], .vertex2 = vertices[1], .vertex3 = vertices[2], .color = SGL_BLUE},
-        &(SGL_Triangle){.vertex1 = vertices[0], .vertex2 = vertices[1], .vertex3 = vertices[3], .color = SGL_BLUE},
-        &(SGL_Triangle){.vertex1 = vertices[6], .vertex2 = vertices[5], .vertex3 = vertices[4], .color = SGL_BLUE},
-        &(SGL_Triangle){.vertex1 = vertices[7], .vertex2 = vertices[6], .vertex3 = vertices[4], .color = SGL_BLUE},
-        &(SGL_Triangle){.vertex1 = vertices[5], .vertex2 = vertices[1], .vertex3 = vertices[0], .color = SGL_RED},
-        &(SGL_Triangle){.vertex1 = vertices[4], .vertex2 = vertices[5], .vertex3 = vertices[0], .color = SGL_RED},
-        &(SGL_Triangle){.vertex1 = vertices[3], .vertex2 = vertices[2], .vertex3 = vertices[6], .color = SGL_RED},
-        &(SGL_Triangle){.vertex1 = vertices[5], .vertex2 = vertices[6], .vertex3 = vertices[7], .color = SGL_RED},
-        &(SGL_Triangle){.vertex1 = vertices[3], .vertex2 = vertices[4], .vertex3 = vertices[0], .color = SGL_GREEN},
-        &(SGL_Triangle){.vertex1 = vertices[4], .vertex2 = vertices[3], .vertex3 = vertices[7], .color = SGL_GREEN},
-        &(SGL_Triangle){.vertex1 = vertices[1], .vertex2 = vertices[5], .vertex3 = vertices[6], .color = SGL_GREEN},
-        &(SGL_Triangle){.vertex1 = vertices[6], .vertex2 = vertices[2], .vertex3 = vertices[1], .color = SGL_GREEN}
+    SGL_Triangle triangles[] = {
+        {.vertex1 = &vertices[0], .vertex2 = &vertices[1], .vertex3 = &vertices[2], .color = SGL_BLUE},
+        {.vertex1 = &vertices[0], .vertex2 = &vertices[1], .vertex3 = &vertices[3], .color = SGL_BLUE},
+        {.vertex1 = &vertices[6], .vertex2 = &vertices[5], .vertex3 = &vertices[4], .color = SGL_BLUE},
+        {.vertex1 = &vertices[7], .vertex2 = &vertices[6], .vertex3 = &vertices[4], .color = SGL_BLUE},
+        {.vertex1 = &vertices[5], .vertex2 = &vertices[1], .vertex3 = &vertices[0], .color = SGL_RED},
+        {.vertex1 = &vertices[4], .vertex2 = &vertices[5], .vertex3 = &vertices[0], .color = SGL_RED},
+        {.vertex1 = &vertices[3], .vertex2 = &vertices[2], .vertex3 = &vertices[6], .color = SGL_RED},
+        {.vertex1 = &vertices[5], .vertex2 = &vertices[6], .vertex3 = &vertices[7], .color = SGL_RED},
+        {.vertex1 = &vertices[3], .vertex2 = &vertices[4], .vertex3 = &vertices[0], .color = SGL_GREEN},
+        {.vertex1 = &vertices[4], .vertex2 = &vertices[3], .vertex3 = &vertices[7], .color = SGL_GREEN},
+        {.vertex1 = &vertices[1], .vertex2 = &vertices[5], .vertex3 = &vertices[6], .color = SGL_GREEN},
+        {.vertex1 = &vertices[6], .vertex2 = &vertices[2], .vertex3 = &vertices[1], .color = SGL_GREEN}
     };
 
-    return SGL_CreateMesh(vertices, triangles, position, orientation, scale);
+    size_t vertices_count = sizeof(vertices) / sizeof(SGL_Vertex);
+    size_t triangles_count = sizeof(triangles) /sizeof(SGL_Triangle);
+
+    void *vertices_ptrs[vertices_count];
+    void *triangles_ptrs[triangles_count];
+
+    for (size_t i = 0; i < vertices_count; i++)
+    {
+        vertices_ptrs[i] = &vertices[i];
+    }
+
+    for (size_t i = 0; i < triangles_count; i++)
+    {
+        triangles_ptrs[i] = &triangles[i];
+    }
+
+    return SGL_CreateMesh(SGL_CreateListFromArray(vertices_ptrs, vertices_count), SGL_CreateListFromArray(triangles_ptrs, triangles_count), position, orientation, scale);
 }
 
 // SGL_Scene
@@ -238,19 +256,6 @@ static void create_view_matrix(SGL_Camera *camera, float out[16]) {
     memcpy(out, translation_x_euler_matrix, sizeof(float) * 16);
 }
 
-static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera, float out[16]) {
-    float aspectRatio = renderer->width * renderer->height;
-
-    float mat[16] = {
-         SGL_Cot(camera->fov / 2) / aspectRatio, 0, 0, 0,
-         0, SGL_Cot(camera->fov / 2), 0, 0,
-         0, 0, -(camera->far / (camera->far - camera->near)), -1,
-         0, 0, (camera->far * camera->near) / (camera->far - camera->near), 0
-    };
-
-    memcpy(out, mat, sizeof(float) * 16);
-}
-
 // SGL_Renderer
 struct SGL_Renderer {
     SDL_Window *window;
@@ -325,6 +330,19 @@ SGL_Renderer* SGL_CreateRenderer(const char *name, SGL_Scene *scene) {
 
 void SGL_FreeRenderer(SGL_Renderer *renderer) {
     free(renderer);
+}
+
+static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera, float out[16]) {
+    float aspectRatio = renderer->width * renderer->height;
+
+    float mat[16] = {
+         SGL_Cot(camera->fov / 2) / aspectRatio, 0, 0, 0,
+         0, SGL_Cot(camera->fov / 2), 0, 0,
+         0, 0, -(camera->far / (camera->far - camera->near)), -1,
+         0, 0, (camera->far * camera->near) / (camera->far - camera->near), 0
+    };
+
+    memcpy(out, mat, sizeof(float) * 16);
 }
 
 /**

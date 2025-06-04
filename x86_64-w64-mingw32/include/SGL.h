@@ -18,7 +18,9 @@ You can change the target as long as you include SDL3
 #ifndef SGL_h
 #define SGL_h
 
+#include <math.h>
 #include <SDL3/SDL.h>
+
 #include "SGL_List.h"
 
 // Utilities functions (Originally SGLMath)
@@ -47,9 +49,9 @@ typedef struct {
     float b;
 } SGL_Color;
 
-const SGL_Color SGL_RED = (SGL_Color){.r = 1.0f, .g = 0.0f, .b = 0.0f};
-const SGL_Color SGL_GREEN = (SGL_Color){.r = 0.0f, .g = 1.0f, .b = 0.0f};
-const SGL_Color SGL_BLUE = (SGL_Color){.r = 0.0f, .g = 0.0f, .b = 1.0f};
+extern const SGL_Color SGL_RED;
+extern const SGL_Color SGL_GREEN;
+extern const SGL_Color SGL_BLUE;
 
 typedef struct {
     float near;
@@ -88,6 +90,14 @@ SGL_Mesh* SGL_CreateMesh(SGL_List *vertices, SGL_List *triangles, SGL_Vector3 po
 SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale);
 
 /**
+ * Contains it's position and a pointer to the mesh it was placed in (used for converting position from local space to world space).
+ */
+typedef struct {
+    SGL_Vector3 position;
+    SGL_Mesh *mesh;
+} SGL_Vertex;
+
+/**
  * Contains pointers to 3 vertices and it's color.
  */
 typedef struct {
@@ -96,14 +106,6 @@ typedef struct {
     SGL_Vertex *vertex3;
     SGL_Color color;
 } SGL_Triangle;
-
-/**
- * Contains it's position and a pointer to the mesh it was placed in (used for converting position from local space to world space).
- */
-typedef struct {
-    SGL_Vector3 position;
-    SGL_Mesh *mesh;
-} SGL_Vertex;
 
 /**
  * Renderer containing the SDL_Window, SDL_Renderer and SDL_Texture buffer. Members were hidden to

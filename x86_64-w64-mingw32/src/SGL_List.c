@@ -37,6 +37,8 @@ size_t SGL_ListIndexOf(SGL_List *list, void *item) {
             return i;
         }
     }
+
+    return -1;
 }
 
 void SGL_ListRemove(SGL_List *list, size_t index) {

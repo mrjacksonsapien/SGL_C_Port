@@ -2,6 +2,7 @@
 #define SGL_List_h
 
 #include <SDL3/SDL.h>
+#include <stdlib.h>
 
 /**
  * Resizable array used for any type. Warning: Putting different types of data can work

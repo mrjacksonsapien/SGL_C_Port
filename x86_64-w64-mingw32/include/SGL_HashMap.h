@@ -2,6 +2,7 @@
 #define SGL_HashMap_h
 
 #include <SDL3/SDL.h>
+
 #include "SGL_List.h"
 
 typedef struct {
