@@ -3,6 +3,7 @@
 #endif
 
 #include "SGL.h"
+#include "SGL_HashMap.h"
 
 const SGL_Color SGL_RED = (SGL_Color){.r = 1.0f, .g = 0.0f, .b = 0.0f};
 const SGL_Color SGL_GREEN = (SGL_Color){.r = 0.0f, .g = 1.0f, .b = 0.0f};
@@ -348,6 +349,11 @@ static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera,
 /**
  * Step 1 (Local space to world space): Converts OOP-like structure into 2 flat arrays (vertices and triangles) for faster computing in the pipeline.
  * Also converts vertices coordinates to world coordinates since all reference with meshes are lost after this.
+ * \param meshes List of meshes to convert.
+ * \param out_vertices Pointer to the output array of vertices.
+ * \param size_vertices Pointer to the size of the output vertices array.
+ * \param out_triangles Pointer to the output array of triangles.
+ * \param size_triangles Pointer to the size of the output triangles array.
  */
 static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices, size_t *size_vertices, float **out_triangles, size_t *size_triangles) {
     SGL_List *vertices = SGL_CreateList();
@@ -406,8 +412,70 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
     }
 }
 
+/**
+ * Equals function for size_t keys.
+ * \param a Pointer to the first key.
+ * \param b Pointer to the second key.
+ * \return 1 if keys are equal, 0 otherwise.
+ */
+static int key_sizet_equals_function(void *a, void *b) {
+    return *(size_t *)a == *(size_t *)b;
+}
+
+/**
+ * Hash function for size_t keys.
+ * \param key Pointer to the key.
+ * \return The hash value of the key.
+ */
+static size_t key_sizet_hash_function(void *key) {
+    return *(size_t *)key;
+}
+
+static size_t add_vertex(float vertices[], SGL_HashMap *vertices_index_map, SGL_List *kept_vertices, size_t vertices_data_index) {
+    void *found = SGL_HashMapGet(vertices_index_map, &vertices_data_index);
+
+    if (found == NULL) {
+        size_t next_index = kept_vertices->size;
+
+        for (int i = 0; i < VERTEX_ARRAY_SIZE; i++) {
+            float *value = malloc(sizeof(float)); // Allocate new memory because new vertices array will be generated, and older array might be destroyed
+            *value = vertices[vertices_data_index + i];
+            SGL_ListAdd(kept_vertices, value);
+        }
+
+        // Store the new index in the map
+        size_t *index_ptr = malloc(sizeof(size_t));
+        *index_ptr = next_index;
+        SGL_HashMapPut(vertices_index_map, &vertices_data_index, index_ptr);
+
+        return next_index;
+    } else {
+        return *(size_t *)found;
+    }
+}
+
+static float* get_xyz(float vertices[], size_t vertex_index) {
+    static float xyz[3];
+    for (size_t i = 0; i < 3; i++)
+    {
+        xyz[i] = vertices[vertex_index + i];
+    }
+    return xyz;
+}
+
+/**
+ * Removes the triangles and their vertices for those facing away from the camera (Triangle facing direction is defined by the order of the vertices in the triangle)
+ */
 static void cull(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
-    // TODO
+    SGL_HashMap *vertices_index_map = SGL_CreateHashMap(key_sizet_equals_function, key_sizet_hash_function);
+    SGL_List *kept_triangles = SGL_CreateList();
+    SGL_List *kept_vertices = SGL_CreateList();
+
+    for (size_t i = 0; i < size_triangles / TRIANGLE_ARRAY_SIZE; i++)
+    {
+        // TODO
+    }
+    
 }
 
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
