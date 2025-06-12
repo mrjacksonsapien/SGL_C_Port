@@ -70,6 +70,9 @@ typedef struct {
 } SGL_Scene;
 
 SGL_Scene* SGL_CreateScene();
+/**
+ * Meshes added in the scene will not be freed. Meshes are managed by the user.
+ */
 void SGL_FreeScene(SGL_Scene *scene);
 
 /**
@@ -85,6 +88,7 @@ typedef struct {
 } SGL_Mesh;
 
 SGL_Mesh* SGL_CreateMesh(SGL_List *vertices, SGL_List *triangles, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale);
+void SGL_FreeMesh(SGL_Mesh *mesh);
 
 // Mesh Templates
 SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale);

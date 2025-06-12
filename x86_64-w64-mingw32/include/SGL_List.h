@@ -15,12 +15,15 @@ typedef struct {
 } SGL_List;
 
 SGL_List* SGL_CreateList();
-SGL_List* SGL_CreateListFromArray(void **array, size_t count);
+/**
+ * Creates a copy of the array passed in parameter.
+ */
+SGL_List* SGL_CreateListFromArray(void **array, size_t count, size_t element_size);
 void SGL_ListAdd(SGL_List *list, void *item);
 void* SGL_ListGet(SGL_List *list, size_t index);
 size_t SGL_ListIndexOf(SGL_List *list, void *item);
 void SGL_ListRemove(SGL_List *list, size_t index);
 void** SGL_ListToArray(SGL_List *list);
-void SGL_FreeList(SGL_List *list);
+void SGL_FreeList(SGL_List *list, bool free_items);
 
 #endif

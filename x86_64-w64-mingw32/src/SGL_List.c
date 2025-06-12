@@ -1,6 +1,5 @@
 #include "SGL_List.h"
-
-static const size_t INITIAL_LIST_CAPACITY = 4;
+#define INITIAL_LIST_CAPACITY 4
 
 SGL_List* SGL_CreateList() {
     SGL_List *list = malloc(sizeof(SGL_List));
@@ -10,11 +9,15 @@ SGL_List* SGL_CreateList() {
     return list;
 }
 
-SGL_List* SGL_CreateListFromArray(void **array, size_t count) {
+SGL_List* SGL_CreateListFromArray(void **array, size_t count, size_t element_size) {
     SGL_List *list = SGL_CreateList();
+
     for (size_t i = 0; i < count; i++) {
-        SGL_ListAdd(list, array[i]);
+        void *copy = malloc(element_size);
+        memcpy(copy, array[i], element_size);
+        SGL_ListAdd(list, copy);
     }
+    
     return list;
 }
 
@@ -62,7 +65,12 @@ void** SGL_ListToArray(SGL_List *list) {
     return array;
 }
 
-void SGL_FreeList(SGL_List *list) {
+void SGL_FreeList(SGL_List *list, bool free_items) {
+    if (free_items) {
+        for (size_t i = 0; i < list->size; i++) {
+            free(list->items[i]);
+        }
+    }
     free(list->items);
     free(list);
 }

@@ -5,9 +5,9 @@
 #include "SGL.h"
 #include "SGL_HashMap.h"
 
-const SGL_Color SGL_RED = (SGL_Color){.r = 1.0f, .g = 0.0f, .b = 0.0f};
-const SGL_Color SGL_GREEN = (SGL_Color){.r = 0.0f, .g = 1.0f, .b = 0.0f};
-const SGL_Color SGL_BLUE = (SGL_Color){.r = 0.0f, .g = 0.0f, .b = 1.0f};
+const SGL_Color SGL_RED = {.r = 1.0f, .g = 0.0f, .b = 0.0f};
+const SGL_Color SGL_GREEN = {.r = 0.0f, .g = 1.0f, .b = 0.0f};
+const SGL_Color SGL_BLUE = {.r = 0.0f, .g = 0.0f, .b = 1.0f};
 
 // Engine constants
 static const int VERTEX_ARRAY_SIZE = 4;
@@ -39,17 +39,23 @@ SGL_Mesh* SGL_CreateMesh(SGL_List *vertices, SGL_List *triangles, SGL_Vector3 po
     return mesh;
 }
 
+void SGL_FreeMesh(SGL_Mesh *mesh) {
+    SGL_FreeList(mesh->vertices, true); // Free memory of things inside the mesh (vertices and triangles data)
+    SGL_FreeList(mesh->triangles, true);
+    free(mesh);
+}
+
 // Mesh template
 SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
     SGL_Vertex vertices[] = {
-        {.position = (SGL_Vector3){-1, 1, -1}},
-        {.position = (SGL_Vector3){1, 1, -1}},
-        {.position = (SGL_Vector3){1, -1, -1}},
-        {.position = (SGL_Vector3){-1, -1, -1}},
-        {.position = (SGL_Vector3){-1, 1, 1}},
-        {.position = (SGL_Vector3){1, 1, 1}},
-        {.position = (SGL_Vector3){1, -1, 1}},
-        {.position = (SGL_Vector3){-1, -1, 1}}
+        {.position = {-1, 1, -1}},
+        {.position = {1, 1, -1}},
+        {.position = {1, -1, -1}},
+        {.position = {-1, -1, -1}},
+        {.position = {-1, 1, 1}},
+        {.position = {1, 1, 1}},
+        {.position = {1, -1, 1}},
+        {.position = {-1, -1, 1}}
     };
 
     SGL_Triangle triangles[] = {
@@ -83,7 +89,10 @@ SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_
         triangles_ptrs[i] = &triangles[i];
     }
 
-    return SGL_CreateMesh(SGL_CreateListFromArray(vertices_ptrs, vertices_count), SGL_CreateListFromArray(triangles_ptrs, triangles_count), position, orientation, scale);
+    return SGL_CreateMesh(
+        SGL_CreateListFromArray(vertices_ptrs, vertices_count, sizeof(SGL_Vertex)), 
+        SGL_CreateListFromArray(triangles_ptrs, triangles_count, sizeof(SGL_Triangle)), 
+        position, orientation, scale);
 }
 
 // SGL_Scene
@@ -101,7 +110,7 @@ SGL_Scene* SGL_CreateScene() {
 }
 
 void SGL_FreeScene(SGL_Scene *scene) {
-    SGL_FreeList(scene->meshes);
+    SGL_FreeList(scene->meshes, false);
     free(scene);
 }
 
@@ -456,10 +465,12 @@ static size_t add_vertex(float vertices[], SGL_HashMap *vertices_index_map, SGL_
 
 static float* get_xyz(float vertices[], size_t vertex_index) {
     static float xyz[3];
+    
     for (size_t i = 0; i < 3; i++)
     {
         xyz[i] = vertices[vertex_index + i];
     }
+
     return xyz;
 }
 

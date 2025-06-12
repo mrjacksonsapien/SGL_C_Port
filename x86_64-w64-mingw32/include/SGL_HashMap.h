@@ -25,6 +25,6 @@ SGL_HashMap* SGL_CreateHashMap(SGL_KeyEquals equals_fn, SGL_KeyHash hash_fn);
 void SGL_HashMapPut(SGL_HashMap *map, void *key, void *value);
 void* SGL_HashMapGet(SGL_HashMap *map, void *key);
 void SGL_HashMapRemove(SGL_HashMap *map, void *key);
-void SGL_HashFreeMap(SGL_HashMap *map);
+void SGL_FreeHashMap(SGL_HashMap *map);
 
 #endif

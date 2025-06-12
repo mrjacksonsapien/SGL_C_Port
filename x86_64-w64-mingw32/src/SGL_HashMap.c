@@ -1,6 +1,5 @@
 #include "SGL_HashMap.h"
-
-static const size_t INITIAL_MAP_CAPACITY = 16;
+#define INITIAL_MAP_CAPACITY 16
 
 SGL_HashMap* SGL_CreateHashMap(SGL_KeyEquals equals_fn, SGL_KeyHash hash_fn) {
     SGL_HashMap *map = malloc(sizeof(SGL_HashMap));
@@ -28,7 +27,7 @@ void SGL_HashMapResize(SGL_HashMap *map, size_t new_capacity) {
                 SGL_HashMapPut(map, entry->key, entry->value); // Rehash & insert
                 free(entry); // Free old entry (SGL_MapPut allocates new one)
             }
-            SGL_FreeList(bucket);
+            SGL_FreeList(bucket, false);
         }
     }
 
@@ -98,7 +97,7 @@ void SGL_HashMapRemove(SGL_HashMap *map, void *key) {
     }
 }
 
-void SGL_HashFreeMap(SGL_HashMap *map) {
+void SGL_FreeHashMap(SGL_HashMap *map) {
     for (size_t i = 0; i < map->capacity; ++i) {
         SGL_List *bucket = map->buckets[i];
         if (bucket != NULL) {
@@ -106,7 +105,7 @@ void SGL_HashFreeMap(SGL_HashMap *map) {
                 SGL_MapEntry *entry = (SGL_MapEntry*)SGL_ListGet(bucket, j);
                 free(entry);
             }
-            SGL_FreeList(bucket);
+            SGL_FreeList(bucket, false);
         }
     }
     free(map->buckets);

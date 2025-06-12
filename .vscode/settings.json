@@ -9,6 +9,7 @@
         "cstdint": "c",
         "sgl_list.h": "c",
         "sdl.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "sgl_hashmap.h": "c"
     }
 }
