@@ -9,15 +9,14 @@ SGL_List* SGL_CreateList() {
     return list;
 }
 
-SGL_List* SGL_CreateListFromArray(void **array, size_t count, size_t element_size) {
+SGL_List* SGL_CreateListFromArray(void *array, size_t count, size_t element_size) {
     SGL_List *list = SGL_CreateList();
-
+    const char *data = (const char *)array;
     for (size_t i = 0; i < count; i++) {
         void *copy = malloc(element_size);
-        memcpy(copy, array[i], element_size);
+        memcpy(copy, data + i * element_size, element_size);
         SGL_ListAdd(list, copy);
     }
-    
     return list;
 }
 

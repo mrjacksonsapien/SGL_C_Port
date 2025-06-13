@@ -22,21 +22,8 @@ float SGL_Cot(float degrees) {
 }
 
 SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], size_t vertices_count, SGL_Triangle triangles[], size_t triangles_count, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
-    void *vertices_ptrs[vertices_count];
-    void *triangles_ptrs[triangles_count];
-
-    for (size_t i = 0; i < vertices_count; i++)
-    {
-        vertices_ptrs[i] = &vertices[i];
-    }
-
-    for (size_t i = 0; i < triangles_count; i++)
-    {
-        triangles_ptrs[i] = &triangles[i];
-    }
-
-    SGL_List *vertices_list = SGL_CreateListFromArray(vertices_ptrs, vertices_count, sizeof(SGL_Vertex));
-    SGL_List *triangles_list = SGL_CreateListFromArray(triangles_ptrs, triangles_count, sizeof(SGL_Triangle));
+    SGL_List *vertices_list = SGL_CreateListFromArray(vertices, vertices_count, sizeof(SGL_Vertex));
+    SGL_List *triangles_list = SGL_CreateListFromArray(triangles, triangles_count, sizeof(SGL_Triangle));
 
     SGL_Mesh *mesh = malloc(sizeof(SGL_Mesh));
     mesh->vertices = vertices_list;
@@ -428,9 +415,9 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
  * Equals function for size_t keys.
  * \param a Pointer to the first key.
  * \param b Pointer to the second key.
- * \return 1 if keys are equal, 0 otherwise.
+ * \return If keys are equal.
  */
-static int key_sizet_equals_function(void *a, void *b) {
+static bool key_sizet_equals_function(void *a, void *b) {
     return *(size_t *)a == *(size_t *)b;
 }
 
@@ -554,6 +541,10 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     SGL_FreeHashMap(vertices_index_map);
     SGL_FreeList(kept_vertices, true);
     SGL_FreeList(kept_triangles, true);
+}
+
+static void clip(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
+    // TODO
 }
 
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
