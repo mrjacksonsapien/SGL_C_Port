@@ -21,21 +21,37 @@ float SGL_Cot(float degrees) {
     return 1.0f * tan(SGL_DegToRad(degrees));
 }
 
-// SGL_Mesh
-SGL_Mesh* SGL_CreateMesh(SGL_List *vertices, SGL_List *triangles, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
-    SGL_Mesh *mesh = malloc(sizeof(SGL_Mesh));
-    mesh->vertices = vertices;
+SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], size_t vertices_count, SGL_Triangle triangles[], size_t triangles_count, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
+    void *vertices_ptrs[vertices_count];
+    void *triangles_ptrs[triangles_count];
 
-    for (size_t i = 0; i < vertices->size; i++)
+    for (size_t i = 0; i < vertices_count; i++)
     {
-        SGL_Vertex *vertex = (SGL_Vertex *)vertices->items[i];
+        vertices_ptrs[i] = &vertices[i];
+    }
+
+    for (size_t i = 0; i < triangles_count; i++)
+    {
+        triangles_ptrs[i] = &triangles[i];
+    }
+
+    SGL_List *vertices_list = SGL_CreateListFromArray(vertices_ptrs, vertices_count, sizeof(SGL_Vertex));
+    SGL_List *triangles_list = SGL_CreateListFromArray(triangles_ptrs, triangles_count, sizeof(SGL_Triangle));
+
+    SGL_Mesh *mesh = malloc(sizeof(SGL_Mesh));
+    mesh->vertices = vertices_list;
+
+    for (size_t i = 0; i < vertices_list->size; i++)
+    {
+        SGL_Vertex *vertex = (SGL_Vertex *)vertices_list->items[i];
         vertex->mesh = mesh;
     }
 
-    mesh->triangles = triangles;
+    mesh->triangles = triangles_list;
     mesh->position = position;
     mesh->orientation = orientation;
     mesh->scale = scale;
+
     return mesh;
 }
 
@@ -45,7 +61,6 @@ void SGL_FreeMesh(SGL_Mesh *mesh) {
     free(mesh);
 }
 
-// Mesh template
 SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
     SGL_Vertex vertices[] = {
         {.position = {-1, 1, -1}},
@@ -76,26 +91,9 @@ SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_
     size_t vertices_count = sizeof(vertices) / sizeof(SGL_Vertex);
     size_t triangles_count = sizeof(triangles) /sizeof(SGL_Triangle);
 
-    void *vertices_ptrs[vertices_count];
-    void *triangles_ptrs[triangles_count];
-
-    for (size_t i = 0; i < vertices_count; i++)
-    {
-        vertices_ptrs[i] = &vertices[i];
-    }
-
-    for (size_t i = 0; i < triangles_count; i++)
-    {
-        triangles_ptrs[i] = &triangles[i];
-    }
-
-    return SGL_CreateMesh(
-        SGL_CreateListFromArray(vertices_ptrs, vertices_count, sizeof(SGL_Vertex)), 
-        SGL_CreateListFromArray(triangles_ptrs, triangles_count, sizeof(SGL_Triangle)), 
-        position, orientation, scale);
+    return SGL_CreateMesh(vertices, vertices_count, triangles, triangles_count, position, orientation, scale);
 }
 
-// SGL_Scene
 SGL_Scene* SGL_CreateScene() {
     SGL_Scene* scene = malloc(sizeof(SGL_Scene));
     scene->meshes = SGL_CreateList();
@@ -266,7 +264,6 @@ static void create_view_matrix(SGL_Camera *camera, float out[16]) {
     memcpy(out, translation_x_euler_matrix, sizeof(float) * 16);
 }
 
-// SGL_Renderer
 struct SGL_Renderer {
     SDL_Window *window;
     SDL_Renderer *sdl_renderer;
@@ -504,7 +501,7 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
             break;
     }
 
-    // TODO : Pre-processing
+    // TODO : Rendering pipeline
 
     void *pixels;
     int pitch;
@@ -514,6 +511,8 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
         free_sdl(renderer);
         return false;
     }
+
+    // Rasterization
 
     // Draw manually to buffer
     uint32_t *buffer = (uint32_t *)pixels;
