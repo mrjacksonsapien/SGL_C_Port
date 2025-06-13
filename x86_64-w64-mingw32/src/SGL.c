@@ -253,6 +253,7 @@ static void create_view_matrix(SGL_Camera *camera, float out[16]) {
 
 struct SGL_Renderer {
     SDL_Window *window;
+    bool is_full_screen;
     SDL_Renderer *sdl_renderer;
     SDL_Texture *texture;
     SGL_Scene *scene;
@@ -294,7 +295,8 @@ SGL_Renderer* SGL_CreateRenderer(const char *name, SGL_Scene *scene) {
 
     renderer->window = SDL_CreateWindow(
         name,
-        640, 480,
+        640, 
+        480,
         SDL_WINDOW_RESIZABLE
     );
 
@@ -547,6 +549,13 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
     // TODO
 }
 
+static void free_pipeline_step(float *vertices, size_t *vertices_size, float *triangles, size_t *triangles_size) {
+    free(vertices);
+    free(vertices_size);
+    free(triangles);
+    free(triangles_size);
+}
+
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     switch (event->type)
     {
@@ -558,12 +567,39 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
                 return false;
             }
             break;
+        case SDL_EVENT_KEY_DOWN:
+            if (event->key.key == SDLK_F11) {
+                renderer->is_full_screen = !renderer->is_full_screen;
+                SDL_SetWindowFullscreen(renderer->window, renderer->is_full_screen ? SDL_WINDOW_FULLSCREEN : 0);
+            }
+            break;
         default:
             break;
     }
 
-    // TODO : Rendering pipeline
+    if (renderer->scene->meshes->size == 0) {
+        return true; // Skip pipeline
+    }
 
+    // Step 1: Convert scene into flat arrays for vertices and triangles
+    float *vertices, *triangles;
+    size_t *vertices_size, *triangles_size;
+    convert_scene_to_flat_arrays(renderer->scene->meshes, vertices, vertices_size, triangles, triangles_size);
+
+    // Step 2: Cull backface triangles
+    float *culled_vertices, *culled_triangles;
+    size_t *culled_vertices_size, *culled_triangles_size;
+    cull(vertices, *vertices_size, triangles, *triangles_size, culled_vertices, culled_vertices_size, culled_triangles, culled_triangles_size);
+
+    // Free memory from Step 1
+    free_pipeline_step(vertices, vertices_size, triangles, triangles_size);
+
+    // Step 3
+
+    // Free memory from Step 2
+    free_pipeline_step(culled_vertices, culled_vertices_size, culled_triangles, culled_triangles_size);
+
+    // Rasterization
     void *pixels;
     int pitch;
 
@@ -573,12 +609,20 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
         return false;
     }
 
-    // Rasterization
+    //IMPORTANT: ARGB format, use pitch instead of SDL renderer width for getting the index of the pixel in the buffer.
     uint32_t *buffer = (uint32_t *)pixels;
 
+    // Clear to black manually
     for (int y = 0; y < renderer->height; y++) {
         for (int x = 0; x < renderer->width; x++) {
-            // TODO : Draw triangles
+            buffer[y * (pitch / sizeof(uint32_t)) + x] = 0xFF000000;
+        }
+    }
+
+    // Render example (Red square)
+    for (int y = 100; y < 200; y++) {
+        for (int x = 100; x < 200; x++) {
+            buffer[y * (pitch / sizeof(uint32_t)) + x] = 0xFFFF0000;
         }
     }
 

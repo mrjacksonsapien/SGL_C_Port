@@ -10,7 +10,7 @@ typedef struct {
     void *value;
 } SGL_MapEntry;
 
-typedef int (*SGL_KeyEquals)(void *a, void *b);
+typedef bool (*SGL_KeyEquals)(void *a, void *b);
 typedef size_t (*SGL_KeyHash)(void *key);
 
 typedef struct {
