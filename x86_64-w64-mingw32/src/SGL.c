@@ -4,6 +4,7 @@
 
 #include "SGL.h"
 #include "SGL_HashMap.h"
+#include <stdio.h>
 
 const SGL_Color SGL_RED = {.r = 1.0f, .g = 0.0f, .b = 0.0f};
 const SGL_Color SGL_GREEN = {.r = 0.0f, .g = 1.0f, .b = 0.0f};
@@ -627,6 +628,8 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     SDL_UnlockTexture(renderer->texture);
     SDL_RenderTexture(renderer->sdl_renderer, renderer->texture, NULL, NULL);
     SDL_RenderPresent(renderer->sdl_renderer);
+
+    printf("Function went well.");
 
     return true;
 }
