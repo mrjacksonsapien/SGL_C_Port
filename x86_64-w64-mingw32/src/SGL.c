@@ -84,18 +84,20 @@ SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_
 SGL_Scene* SGL_CreateScene() {
     SGL_Scene* scene = malloc(sizeof(SGL_Scene));
     scene->meshes = SGL_CreateList();
-    SGL_Camera camera = (SGL_Camera){
+    SGL_Camera *camera = malloc(sizeof(SGL_Camera));
+    *camera = (SGL_Camera){
         .near = 0.1f, 
         .far = 100.0f, 
         .position = (SGL_Vector3){.x = 0, .y = 0, .z = 0},
         .orientation = (SGL_Vector3){.x = 0, .y = 0, .z = 0}
     };
-    scene->currentCamera = &camera;
+    scene->currentCamera = camera;
     return scene;
 }
 
 void SGL_FreeScene(SGL_Scene *scene) {
     SGL_FreeList(scene->meshes, false);
+    free(scene->currentCamera);
     free(scene);
 }
 
@@ -325,6 +327,7 @@ SGL_Renderer* SGL_CreateRenderer(const char *name, SGL_Scene *scene) {
 }
 
 void SGL_FreeRenderer(SGL_Renderer *renderer) {
+    free_sdl(renderer);
     free(renderer);
 }
 
@@ -455,15 +458,10 @@ static size_t add_vertex(float vertices[], SGL_HashMap *vertices_index_map, SGL_
     }
 }
 
-static float* get_xyz(float vertices[], size_t vertex_index) {
-    static float xyz[3];
-    
-    for (size_t i = 0; i < 3; i++)
-    {
-        xyz[i] = vertices[vertex_index + i];
+static void get_xyz(float vertices[], size_t vertex_index, float out_xyz[3]) {
+    for (size_t i = 0; i < 3; i++) {
+        out_xyz[i] = vertices[vertex_index + i];
     }
-
-    return xyz;
 }
 
 /**
@@ -483,9 +481,10 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
         size_t vertex2_index = triangles[triangle_index + 1];
         size_t vertex3_index = triangles[triangle_index + 2];
 
-        float *vertex1_xyz = get_xyz(vertices, vertex1_index);
-        float *vertex2_xyz = get_xyz(vertices, vertex2_index);
-        float *vertex3_xyz = get_xyz(vertices, vertex3_index);
+        float vertex1_xyz[3], vertex2_xyz[3], vertex3_xyz[3];
+        get_xyz(vertices, vertex1_index, vertex1_xyz);
+        get_xyz(vertices, vertex2_index, vertex2_xyz);
+        get_xyz(vertices, vertex3_index, vertex3_xyz);
 
         // CCW convention
         float edge_ax = vertex2_xyz[0] - vertex1_xyz[0];
@@ -531,13 +530,13 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     *out_vertices = malloc(sizeof(float) * (*out_size_vertices));
     for (size_t i = 0; i < *out_size_vertices; i++)
     {
-        (*out_vertices)[i] = *(vertices_ptrs[i]);
+        (*out_vertices)[i] = *(float*)(vertices_ptrs[i]);
     }
 
     *out_triangles = malloc(sizeof(float) * (*out_size_triangles));
     for (size_t i = 0; i < *out_size_triangles; i++)
     {
-        (*out_triangles)[i] = *(triangles_ptrs[i]);
+        (*out_triangles)[i] = *(float*)(triangles_ptrs[i]);
     }
 
     SGL_FreeHashMap(vertices_index_map);
@@ -549,18 +548,15 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
     // TODO
 }
 
-static void free_pipeline_step(float *vertices, size_t *vertices_size, float *triangles, size_t *triangles_size) {
+static void free_pipeline_step(float *vertices, float *triangles) {
     free(vertices);
-    free(vertices_size);
     free(triangles);
-    free(triangles_size);
 }
 
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     switch (event->type)
     {
         case SDL_EVENT_QUIT:
-            free_sdl(renderer);
             return false;
         case SDL_EVENT_WINDOW_RESIZED:
             if (!resize_texture(renderer)) {
@@ -583,21 +579,21 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
 
     // Step 1: Convert scene into flat arrays for vertices and triangles
     float *vertices, *triangles;
-    size_t *vertices_size, *triangles_size;
-    convert_scene_to_flat_arrays(renderer->scene->meshes, vertices, vertices_size, triangles, triangles_size);
+    size_t vertices_size, triangles_size;
+    convert_scene_to_flat_arrays(renderer->scene->meshes, &vertices, &vertices_size, &triangles, &triangles_size);
 
     // Step 2: Cull backface triangles
     float *culled_vertices, *culled_triangles;
-    size_t *culled_vertices_size, *culled_triangles_size;
-    cull(vertices, *vertices_size, triangles, *triangles_size, culled_vertices, culled_vertices_size, culled_triangles, culled_triangles_size);
+    size_t culled_vertices_size, culled_triangles_size;
+    cull(vertices, vertices_size, triangles, triangles_size, &culled_vertices, &culled_vertices_size, &culled_triangles, &culled_triangles_size);
 
     // Free memory from Step 1
-    free_pipeline_step(vertices, vertices_size, triangles, triangles_size);
+    free_pipeline_step(vertices, triangles);
 
     // Step 3
 
     // Free memory from Step 2
-    free_pipeline_step(culled_vertices, culled_vertices_size, culled_triangles, culled_triangles_size);
+    free_pipeline_step(culled_vertices, culled_triangles);
 
     // Rasterization
     void *pixels;
