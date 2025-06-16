@@ -524,20 +524,22 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     *out_size_vertices = kept_vertices->size;
     *out_size_triangles = kept_triangles->size;
 
-    float **vertices_ptrs = SGL_ListToArray(kept_vertices);
-    float **triangles_ptrs = SGL_ListToArray(kept_triangles);
+    void **vertices_ptrs = SGL_ListToArray(kept_vertices);
+    void **triangles_ptrs = SGL_ListToArray(kept_triangles);
 
     *out_vertices = malloc(sizeof(float) * (*out_size_vertices));
     for (size_t i = 0; i < *out_size_vertices; i++)
     {
         (*out_vertices)[i] = *(float*)(vertices_ptrs[i]);
     }
+    free(vertices_ptrs);
 
     *out_triangles = malloc(sizeof(float) * (*out_size_triangles));
     for (size_t i = 0; i < *out_size_triangles; i++)
     {
         (*out_triangles)[i] = *(float*)(triangles_ptrs[i]);
     }
+    free(triangles_ptrs);
 
     SGL_FreeHashMap(vertices_index_map);
     SGL_FreeList(kept_vertices, true);
