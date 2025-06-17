@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "SGL.h"
+#include "SGL_Utils.h"
 
 int main(int argc, char* argv[]) {
     SGL_Scene *scene = SGL_CreateScene(); // Create scene attached to renderer
@@ -28,6 +29,9 @@ int main(int argc, char* argv[]) {
             if (!SGL_Render(renderer, &event)) {
                 running = false;
                 break;
+            }
+            if (event.key.key == SDLK_M) {
+                PrintMemoryUsage();
             }
             // Add other events check here for event logic (eg: character moving based on user input)
         }

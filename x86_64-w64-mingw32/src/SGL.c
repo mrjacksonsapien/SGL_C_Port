@@ -15,7 +15,7 @@ static const int VERTEX_ARRAY_SIZE = 4;
 static const int TRIANGLE_ARRAY_SIZE = 6;
 
 float SGL_DegToRad(float degrees) {
-    return degrees * (M_PI / 180);
+    return degrees * (M_PI / 180.0f);
 }
 
 float SGL_Cot(float degrees) {
@@ -51,14 +51,14 @@ void SGL_FreeMesh(SGL_Mesh *mesh) {
 
 SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
     SGL_Vertex vertices[] = {
-        {.position = {-1, 1, -1}},
-        {.position = {1, 1, -1}},
-        {.position = {1, -1, -1}},
-        {.position = {-1, -1, -1}},
-        {.position = {-1, 1, 1}},
-        {.position = {1, 1, 1}},
-        {.position = {1, -1, 1}},
-        {.position = {-1, -1, 1}}
+        {.position = {-1.0f, 1.0f, -1.0f}},
+        {.position = {1.0f, 1.0f, -1.0f}},
+        {.position = {1.0f, -1.0f, -1.0f}},
+        {.position = {-1.0f, -1.0f, -1.0f}},
+        {.position = {-1.0f, 1.0f, 1.0f}},
+        {.position = {1.0f, 1.0f, 1.0f}},
+        {.position = {1.0f, -1.0f, 1.0f}},
+        {.position = {-1.0f, -1.0f, 1.0f}}
     };
 
     SGL_Triangle triangles[] = {
@@ -89,8 +89,8 @@ SGL_Scene* SGL_CreateScene() {
     *camera = (SGL_Camera){
         .near = 0.1f, 
         .far = 100.0f, 
-        .position = (SGL_Vector3){.x = 0, .y = 0, .z = 0},
-        .orientation = (SGL_Vector3){.x = 0, .y = 0, .z = 0}
+        .position = (SGL_Vector3){.x = 0.0f, .y = 0.0f, .z = 0.0f},
+        .orientation = (SGL_Vector3){.x = 0.0f, .y = 0.0f, .z = 0.0f}
     };
     scene->currentCamera = camera;
     return scene;
@@ -140,10 +140,10 @@ static void multiply_4x4_matrix(float a[16], float b[16], float out[16]) {
 
 static void create_translation_matrix(float x, float y, float z, float out[16]) {
     float mat[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        x, y, z, 1
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        x, y, z, 1.0f
     };
 
     memcpy(out, mat, sizeof(float) * 16);
@@ -151,10 +151,10 @@ static void create_translation_matrix(float x, float y, float z, float out[16]) 
 
 static void create_scale_matrix(float x, float y, float z, float out[16]) {
     float mat[16] = {
-        x, 0, 0, 0,
-        0, y, 0, 0,
-        0, 0, z, 0,
-        0, 0, 0, 1
+        x, 0.0f, 0.0f, 0.0f,
+        0.0f, y, 0.0f, 0.0f,
+        0.0f, 0.0f, z, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     };
 
     memcpy(out, mat, sizeof(float) * 16);
@@ -166,10 +166,10 @@ static void create_pitch_matrix(float pitch_degrees, float out[16]) {
     float s = sin(pitch_radians);
 
     float mat[16] = {
-        1, 0, 0, 0,
-        0, c, -s, 0,
-        0, s,  c, 0,
-        0, 0, 0, 1
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, c, -s, 0.0f,
+        0.0f, s,  c, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     };
 
     memcpy(out, mat, sizeof(float) * 16);
@@ -181,10 +181,10 @@ static void create_yaw_matrix(float yaw_degrees, float out[16]) {
     float s = sin(yaw_radians);
 
     float mat[16] = {
-         c, 0, s, 0,
-         0, 1, 0, 0,
-        -s, 0, c, 0,
-         0, 0, 0, 1
+         c, 0.0f, s, 0.0f,
+         0.0f, 1.0f, 0, 0.0f,
+        -s, 0.0f, c, 0.0f,
+         0.0f, 0.0f, 0.0f, 1.0f
     };
 
     memcpy(out, mat, sizeof(float) * 16);
@@ -196,10 +196,10 @@ static void create_roll_matrix(float roll_degrees, float out[16]) {
     float s = sin(roll_radians);
 
     float mat[16] = {
-         c, -s, 0, 0,
-         s,  c, 0, 0,
-         0,  0, 1, 0,
-         0,  0, 0, 1
+         c, -s, 0.0f, 0.0f,
+         s,  c, 0.0f, 0.0f,
+         0.0f,  0.0f, 1.0f, 0.0f,
+         0.0f,  0.0f, 0.0f, 1.0f
     };
 
     memcpy(out, mat, sizeof(float) * 16);
@@ -336,10 +336,10 @@ static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera,
     float aspectRatio = renderer->width * renderer->height;
 
     float mat[16] = {
-        SGL_Cot(camera->fov / 2) / aspectRatio, 0, 0, 0,
-        0, SGL_Cot(camera->fov / 2), 0, 0,
-        0, 0, -(camera->far / (camera->far - camera->near)), -1,
-        0, 0, (camera->far * camera->near) / (camera->far - camera->near), 0
+        SGL_Cot(camera->fov / 2.0f) / aspectRatio, 0.0f, 0.0f, 0.0f,
+        0.0f, SGL_Cot(camera->fov / 2.0f), 0.0f, 0.0f,
+        0.0f, 0.0f, -(camera->far / (camera->far - camera->near)), -1.0f,
+        0.0f, 0.0f, (camera->far * camera->near) / (camera->far - camera->near), 0.0f
     };
 
     memcpy(out, mat, sizeof(float) * 16);
