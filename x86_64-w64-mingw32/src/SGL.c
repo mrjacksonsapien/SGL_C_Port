@@ -413,8 +413,8 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
         (*out_vertices)[vertex_index + 3] = vertex_data[3];
     }
 
-    SGL_FreeList(vertices, true);
-    SGL_FreeList(triangles, true);
+    SGL_FreeList(vertices, false);
+    SGL_FreeList(triangles, false);
 }
 
 /**
@@ -628,8 +628,6 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     SDL_UnlockTexture(renderer->texture);
     SDL_RenderTexture(renderer->sdl_renderer, renderer->texture, NULL, NULL);
     SDL_RenderPresent(renderer->sdl_renderer);
-
-    printf("Function went well.");
 
     return true;
 }
