@@ -332,6 +332,14 @@ void SGL_FreeRenderer(SGL_Renderer *renderer) {
     free(renderer);
 }
 
+void SGL_RendererSetScene(SGL_Renderer *renderer, SGL_Scene *scene) {
+    renderer->scene = scene;
+}
+
+SDL_Window* SGL_RendererGetWindow(SGL_Renderer *renderer) {
+    return renderer->window;
+}
+
 static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera, float out[16]) {
     float aspectRatio = renderer->width * renderer->height;
 
@@ -346,7 +354,7 @@ static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera,
 }
 
 /**
- * Step 1 (Local space to world space): Converts OOP-like structure into 2 flat arrays (vertices and triangles) for faster computing in the pipeline.
+ * Local space-> world space: Converts OOP-like structure into 2 flat arrays (vertices and triangles) for faster computing in the pipeline.
  * Also converts vertices coordinates to world coordinates since all reference with meshes are lost after this.
  * 
  * IMPORTANT : THE ** isnt because its an array of pointers, its a pointer of a pointer of an array (so the function can place a pointer of an array inside the pointer you gave)
@@ -417,21 +425,10 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
     SGL_FreeList(triangles, false);
 }
 
-/**
- * Equals function for size_t keys.
- * \param a Pointer to the first key.
- * \param b Pointer to the second key.
- * \return If keys are equal.
- */
 static bool key_sizet_equals_function(void *a, void *b) {
     return *(size_t *)a == *(size_t *)b;
 }
 
-/**
- * Hash function for size_t keys.
- * \param key Pointer to the key.
- * \return The hash value of the key.
- */
 static size_t key_sizet_hash_function(void *key) {
     return *(size_t *)key;
 }
@@ -556,7 +553,7 @@ static void free_pipeline_step(float *vertices, float *triangles) {
     free(triangles);
 }
 
-bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
+static bool handle_sdl_events(SGL_Renderer *renderer, SDL_Event *event) {
     switch (event->type)
     {
         case SDL_EVENT_QUIT:
@@ -576,29 +573,10 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
             break;
     }
 
-    if (renderer->scene->meshes->size == 0) {
-        return true; // Skip pipeline
-    }
+    return true;
+}
 
-    // Step 1: Convert scene into flat arrays for vertices and triangles
-    float *vertices, *triangles;
-    size_t vertices_size, triangles_size;
-    convert_scene_to_flat_arrays(renderer->scene->meshes, &vertices, &vertices_size, &triangles, &triangles_size);
-
-    // Step 2: Cull backface triangles
-    float *culled_vertices, *culled_triangles;
-    size_t culled_vertices_size, culled_triangles_size;
-    cull(vertices, vertices_size, triangles, triangles_size, &culled_vertices, &culled_vertices_size, &culled_triangles, &culled_triangles_size);
-
-    // Free memory from Step 1
-    free_pipeline_step(vertices, triangles);
-
-    // Step 3
-
-    // Free memory from Step 2
-    free_pipeline_step(culled_vertices, culled_triangles);
-
-    // Rasterization
+static bool draw(SGL_Renderer *renderer) {
     void *pixels;
     int pitch;
 
@@ -630,4 +608,48 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     SDL_RenderPresent(renderer->sdl_renderer);
 
     return true;
+}
+
+bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
+    if (!handle_sdl_events(renderer, event)) {
+        return false;
+    }
+
+    if (renderer->scene->meshes->size == 0) {
+        return true; // Skip pipeline
+    }
+
+    // Convert scene into flat arrays for vertices and triangles and local space -> world space
+    float *vertices, *triangles;
+    size_t vertices_size, triangles_size;
+    convert_scene_to_flat_arrays(renderer->scene->meshes, &vertices, &vertices_size, &triangles, &triangles_size);
+
+    // World space -> View space
+    float view_matrix[16];
+    create_view_matrix(renderer->scene->currentCamera, view_matrix);
+    multiply_matrix_with_vertices(view_matrix, vertices, vertices_size);
+
+    // Cull backface triangles
+    float *culled_vertices, *culled_triangles;
+    size_t culled_vertices_size, culled_triangles_size;
+    cull(vertices, vertices_size, triangles, triangles_size, &culled_vertices, &culled_vertices_size, &culled_triangles, &culled_triangles_size);
+
+    // Free world space data (the moment you don't need it anymore, don't wait and forget)
+    free_pipeline_step(vertices, triangles);
+
+    // View space -> Clip space
+    float projection_matrix[16];
+    create_projection_matrix(renderer, renderer->scene->currentCamera, projection_matrix);
+    multiply_matrix_with_vertices(projection_matrix, culled_vertices, culled_vertices_size);
+
+    // Clip triangles
+    float *clipped_vertices, *clipped_triangles;
+    size_t clipped_vertices_size, clipped_triangles_size;
+    clip(culled_vertices, culled_vertices_size, culled_triangles, culled_triangles_size, &clipped_vertices, &clipped_vertices_size, &clipped_triangles, &clipped_triangles_size);
+
+    // Free view space data
+    free_pipeline_step(culled_vertices, culled_triangles);
+
+    // Rasterization
+    return draw(renderer);
 }

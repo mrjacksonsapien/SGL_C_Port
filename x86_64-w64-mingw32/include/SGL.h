@@ -145,6 +145,15 @@ void SGL_FreeRenderer(SGL_Renderer *renderer);
  * \param event Pointer to polled SDL_Event
  */
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event);
+/**
+ * Change scene for this renderer.
+ */
+void SGL_RendererSetScene(SGL_Renderer *renderer, SGL_Scene *scene);
+/**
+ * Get the SDL window (only if you know what you're doing). I created the abstraction
+ * layer so you don't have to deal with the window itself but if you wanna tweak it and add your own stuff feel free.
+ */
+SDL_Window* SGL_RendererGetWindow(SGL_Renderer *renderer);
 
 #ifdef __cplusplus
 }
