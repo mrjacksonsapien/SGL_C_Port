@@ -43,8 +43,11 @@ size_t SGL_ListIndexOf(SGL_List *list, void *item) {
     return -1;
 }
 
-void SGL_ListRemove(SGL_List *list, size_t index) {
+void SGL_ListRemove(SGL_List *list, size_t index, bool free_item) {
     if (index >= list->size) return;
+    if (free_item) {
+        free(list->items[index]);
+    }
     for (size_t i = index; i < list->size - 1; i++) {
         list->items[i] = list->items[i + 1];
     }

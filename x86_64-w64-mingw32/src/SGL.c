@@ -13,6 +13,14 @@ const SGL_Color SGL_BLUE = {.r = 0.0f, .g = 0.0f, .b = 1.0f};
 // Engine constants
 static const int VERTEX_ARRAY_SIZE = 4;
 static const int TRIANGLE_ARRAY_SIZE = 6;
+static const float planes_constants[6][4] = {
+    {1, 0, 0, -1}, // Left
+    {-1, 0, 0, -1}, // Right
+    {0, 1, 0, -1}, // Bottom
+    {0, -1, 0, -1}, // Top
+    {0, 0, 1, -1}, // Near
+    {0, 0, -1, -1} // Far
+};
 
 float SGL_DegToRad(float degrees) {
     return degrees * (M_PI / 180.0f);
@@ -117,9 +125,9 @@ static void multiply_matrix_with_vertex(float m[16], size_t vertex_index, float 
 }
 
 static void multiply_matrix_with_vertices(float m[16], float vertices_data[], size_t vertices_size) {
-    for (size_t i = 0; i < vertices_size; i++)
+    for (size_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
     {
-        multiply_matrix_with_vertex(m, i, vertices_data);
+        multiply_matrix_with_vertex(m, i * VERTEX_ARRAY_SIZE, vertices_data);
     }
 }
 
@@ -355,7 +363,8 @@ static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera,
 
 /**
  * Local space-> world space: Converts OOP-like structure into 2 flat arrays (vertices and triangles) for faster computing in the pipeline.
- * Also converts vertices coordinates to world coordinates since all reference with meshes are lost after this.
+ * Also converts vertices coordinates to world coordinates since all reference with meshes are lost after this. out_size is the length of the flat array,
+ * NOT the amount of logical elements inside this array (aka amount of vertices/triangles)
  * 
  * IMPORTANT : THE ** isnt because its an array of pointers, its a pointer of a pointer of an array (so the function can place a pointer of an array inside the pointer you gave)
  * just to clear any confusion!
@@ -544,8 +553,70 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     SGL_FreeList(kept_triangles, true);
 }
 
+static bool planes_relation(float active_vertices[], size_t vertex_index, int i) {
+    float w = active_vertices[vertex_index + 3];
+
+    switch (i) {
+        case 0: // Left
+            return active_vertices[vertex_index] >= w;
+        case 1: // Right
+            return active_vertices[vertex_index] <= -w;
+        case 2: // Top
+            return active_vertices[vertex_index + 1] >= w;
+        case 3: // Bottom
+            return active_vertices[vertex_index + 1] <= -w;
+        case 4: // Near
+            return active_vertices[vertex_index + 2] >= w;
+        case 5: // Far
+            return active_vertices[vertex_index + 2] <= -w;
+        default:
+            return false;
+    }
+}
+
+static bool get_intersection(SGL_List *active_vertices, size_t p1_index, size_t p2_index, int plane_index, float out_intersection[4]) {
+    float plane[4];
+    memcpy(plane, planes_constants[plane_index], sizeof(float) * 4);
+
+    float x1 = *(float*)SGL_ListGet(active_vertices, p1_index);
+    float y1 = *(float*)SGL_ListGet(active_vertices, p1_index + 1);
+    float z1 = *(float*)SGL_ListGet(active_vertices, p1_index + 2);
+    float w1 = *(float*)SGL_ListGet(active_vertices, p1_index + 3);
+
+    float x2 = *(float*)SGL_ListGet(active_vertices, p2_index);
+    float y2 = *(float*)SGL_ListGet(active_vertices, p2_index + 1);
+    float z2 = *(float*)SGL_ListGet(active_vertices, p2_index + 2);
+    float w2 = *(float*)SGL_ListGet(active_vertices, p2_index + 3);
+
+    float numerator = -(plane[0] * x1 + plane[1] * y1 + plane[2] * z1 + plane[3] * w1);
+    float denominator = (plane[0] * x2 + plane[1] * y2 + plane[2] * z2 + plane[3] * w2) + numerator;
+
+    if (abs(denominator) < 1e-6f) {
+        return false; // Lines are parallel or coincident
+    }
+
+    float t = numerator / denominator;
+
+    out_intersection[0] = x1 + t * (x2 - x1);
+    out_intersection[1] = y1 + t * (y2 - y1);
+    out_intersection[2] = z1 + t * (z2 - z1);
+    out_intersection[3] = w1 + t * (w2 - w1);
+
+    return true;
+}
+
 static void clip(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
-    // TODO
+    SGL_List *active_triangles = SGL_CreateListFromArray(triangles, size_triangles, sizeof(float));
+    SGL_List *active_vertices = SGL_CreateListFromArray(vertices, size_vertices, sizeof(float));
+
+    SGL_List *next_triangles = SGL_CreateList();
+    SGL_List *next_vertices = SGL_CreateList();
+
+    // Iterate over each plane
+    for (size_t i = 0; i < 6; i++)
+    {
+        // TODO
+    }
 }
 
 static void free_pipeline_step(float *vertices, float *triangles) {
@@ -585,6 +656,10 @@ static bool draw(SGL_Renderer *renderer) {
         free_sdl(renderer);
         return false;
     }
+
+    // TODO: Draw triangles
+
+    // Use example
 
     //IMPORTANT: ARGB format, use pitch instead of SDL renderer width for getting the index of the pixel in the buffer.
     uint32_t *buffer = (uint32_t *)pixels;

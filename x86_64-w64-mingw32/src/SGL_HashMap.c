@@ -89,7 +89,7 @@ void SGL_HashMapRemove(SGL_HashMap *map, void *key) {
     {
         SGL_MapEntry *entry = (SGL_MapEntry*)SGL_ListGet(bucket, i);
         if (map->equals_fn(entry->key, key)) {
-            SGL_ListRemove(bucket, i);
+            SGL_ListRemove(bucket, i, false);
             free(entry);
             map->size--;
             return;
