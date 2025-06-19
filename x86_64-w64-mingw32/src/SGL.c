@@ -52,7 +52,8 @@ SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], size_t vertices_count, SGL_Trian
 }
 
 void SGL_FreeMesh(SGL_Mesh *mesh) {
-    SGL_FreeList(mesh->vertices, true); // Free memory of things inside the mesh (vertices and triangles data)
+    // Free memory of things inside the mesh (vertices and triangles data)
+    SGL_FreeList(mesh->vertices, true);
     SGL_FreeList(mesh->triangles, true);
     free(mesh);
 }
@@ -465,6 +466,19 @@ static size_t add_vertex(float vertices[], SGL_HashMap *vertices_index_map, SGL_
     }
 }
 
+static size_t create_vertex(SGL_List *next_vertices, float vertex[VERTEX_ARRAY_SIZE]) {
+    size_t next_index = next_vertices->size;
+    float *vertex_data = malloc(sizeof(float) * VERTEX_ARRAY_SIZE);
+
+    for (size_t i = 0; i < VERTEX_ARRAY_SIZE; i++)
+    {
+        vertex_data[i] = vertex[i];
+        SGL_ListAdd(next_vertices, &vertex_data[i]);
+    }
+
+    return next_index;
+}
+
 static void get_xyz(float vertices[], size_t vertex_index, float out_xyz[3]) {
     for (size_t i = 0; i < 3; i++) {
         out_xyz[i] = vertices[vertex_index + i];
@@ -615,10 +629,14 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
     // Iterate over each plane
     for (size_t i = 0; i < 6; i++)
     {
-        // TODO
+        SGL_HashMap *vertices_index_map = SGL_CreateHashMap(key_sizet_equals_function, key_sizet_hash_function);
+        SGL_FreeHashMap(vertices_index_map);
     }
 }
 
+/**
+ * Used at every step because the vertices and triangles are dynamically allocated.
+ */
 static void free_pipeline_step(float *vertices, float *triangles) {
     free(vertices);
     free(triangles);
