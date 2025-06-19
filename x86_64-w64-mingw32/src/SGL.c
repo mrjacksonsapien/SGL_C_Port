@@ -925,13 +925,15 @@ static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t ve
 
                         int pixel_index = (y * (pitch / sizeof(uint32_t)) + x);
 
+                        /*
                         uint8_t r = (uint8_t)triangles[triangle_index + 3];
                         uint8_t g = (uint8_t)triangles[triangle_index + 4];
                         uint8_t b = (uint8_t)triangles[triangle_index + 5];
 
                         uint32_t color = (0xFF << 24) | (r << 16) | (g << 8) | b;
+                        */
 
-                        buffer[pixel_index] = color;
+                        buffer[pixel_index] = 0xFFFFFF;
                     }
                 }
             }
