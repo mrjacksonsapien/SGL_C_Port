@@ -806,7 +806,30 @@ static bool handle_sdl_events(SGL_Renderer *renderer, SDL_Event *event) {
     return true;
 }
 
-static bool draw(SGL_Renderer *renderer) {
+static void apply_perspective_division_clip_vertices(float vertices[], size_t vertices_size) {
+    for (size_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
+    {
+        size_t vertex_index = i * VERTEX_ARRAY_SIZE;
+        float w = vertices[vertex_index + 3];
+
+        vertices[vertex_index] /= w;
+        vertices[vertex_index + 1] /= w;
+        vertices[vertex_index + 2] /= w;
+        vertices[vertex_index + 3] /= w;
+    }
+}
+
+static void map_ndc_vertices_to_screen_coordinates(SGL_Renderer *renderer, float vertices[], size_t vertices_size) {
+    for (size_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
+    {
+        size_t vertex_index = i * VERTEX_ARRAY_SIZE;
+
+        vertices[vertex_index] = (vertices[vertex_index] + 1) / 2 * renderer->width;
+        vertices[vertex_index + 1] = (1 - vertices[vertex_index + 1]) / 2 * renderer->height;
+    }
+}
+
+static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t vertices_size, float triangles[], size_t triangles_size) {
     void *pixels;
     int pitch;
 
@@ -884,6 +907,17 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     // Free view space data
     free_pipeline_step(culled_vertices, culled_triangles);
 
+    // Clip space -> NDC space
+    apply_perspective_division_clip_vertices(clipped_vertices, clipped_vertices_size);
+
+    // NDC space -> Screen space
+    map_ndc_vertices_to_screen_coordinates(renderer, clipped_vertices, clipped_vertices_size);
+
     // Rasterization
-    return draw(renderer);
+    render_triangles(renderer, clipped_vertices, clipped_vertices_size, clipped_triangles, clipped_triangles_size);
+
+    // Free screen space data
+    free_pipeline_step(clipped_vertices, clipped_triangles);
+
+    return true;
 }
