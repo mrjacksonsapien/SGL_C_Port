@@ -2,9 +2,13 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 #include "SGL.h"
 #include "SGL_HashMap.h"
 #include <stdio.h>
+#include <float.h>
 
 const SGL_Color SGL_RED = {.r = 1.0f, .g = 0.0f, .b = 0.0f};
 const SGL_Color SGL_GREEN = {.r = 0.0f, .g = 1.0f, .b = 0.0f};
@@ -14,12 +18,12 @@ const SGL_Color SGL_BLUE = {.r = 0.0f, .g = 0.0f, .b = 1.0f};
 static const int VERTEX_ARRAY_SIZE = 4;
 static const int TRIANGLE_ARRAY_SIZE = 6;
 static const float planes_constants[6][4] = {
-    {1, 0, 0, -1}, // Left
-    {-1, 0, 0, -1}, // Right
-    {0, 1, 0, -1}, // Bottom
-    {0, -1, 0, -1}, // Top
-    {0, 0, 1, -1}, // Near
-    {0, 0, -1, -1} // Far
+    {1.0f, 0.0f, 0.0f, -1.0f}, // Left
+    {-1.0f, 0.0f, 0.0f, -1.0f}, // Right
+    {0.0f, 1.0f, 0.0f, -1.0f}, // Bottom
+    {0.0f, -1.0f, 0.0f, -1.0f}, // Top
+    {0.0f, 0.0f, 1.0f, -1.0f}, // Near
+    {0.0f, 0.0f, -1.0f, -1.0f} // Far
 };
 
 float SGL_DegToRad(float degrees) {
@@ -110,8 +114,6 @@ void SGL_FreeScene(SGL_Scene *scene) {
     free(scene->currentCamera);
     free(scene);
 }
-
-// Matrices
 
 static void multiply_matrix_with_vertex(float m[16], size_t vertex_index, float vertices_data[]) {
     float x = vertices_data[vertex_index];
@@ -829,6 +831,25 @@ static void map_ndc_vertices_to_screen_coordinates(SGL_Renderer *renderer, float
     }
 }
 
+static bool point_is_in_triangle(float px, float py, float ax, float ay, float bx, float by, float cx, float cy, bool is_ccw) {
+    float edge_ab = (py - ay) * (bx - ax) - (px - ax) * (by - ay);
+    float edge_bc = (py - by) * (cx - bx) - (px - bx) * (cy - by);
+    float edge_ca = (py - cy) * (ax - cx) - (px - cx) * (ay - cy);
+
+    if (!is_ccw) {
+        edge_ab *= -1;
+        edge_bc *= -1;
+        edge_ca *= -1;
+    }
+
+    return (edge_ab >= 0) && (edge_bc >= 0) && (edge_ca >= 0);
+}
+
+static bool is_triangle_ccw(float ax, float ay, float bx, float by, float cx, float cy) {
+    float signed_area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    return signed_area > 0;
+}
+
 static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t vertices_size, float triangles[], size_t triangles_size) {
     void *pixels;
     int pitch;
@@ -838,8 +859,6 @@ static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t ve
         free_sdl(renderer);
         return false;
     }
-
-    // TODO: Draw triangles
 
     // Use example
 
@@ -853,10 +872,69 @@ static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t ve
         }
     }
 
-    // Render example (Red square)
-    for (int y = 100; y < 200; y++) {
-        for (int x = 100; x < 200; x++) {
-            buffer[y * (pitch / sizeof(uint32_t)) + x] = 0xFFFF0000;
+    int depth_buffer_size = renderer->width * renderer->height;
+    float depth_buffer[depth_buffer_size];
+
+    for (int i = 0; i < depth_buffer_size; i++) {
+        depth_buffer[i] = FLT_MAX;
+    }
+
+    for (size_t i = 0; i < triangles_size / TRIANGLE_ARRAY_SIZE; i++) {
+        size_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
+
+        int v1_index = (int)triangles[triangle_index];
+        int v2_index = (int)triangles[triangle_index + 1];
+        int v3_index = (int)triangles[triangle_index + 2];
+
+        float v1_x = vertices[v1_index];
+        float v1_y = vertices[v1_index + 1];
+
+        float v2_x = vertices[v2_index];
+        float v2_y = vertices[v2_index + 1];
+
+        float v3_x = vertices[v3_index];
+        float v3_y = vertices[v3_index + 1];
+
+        bool is_ccw = is_triangle_ccw(v1_x, v1_y, v2_x, v2_y, v3_x, v3_y);
+
+        float min_x = floor(MIN(MIN(v1_x, v2_x), v3_x));
+        float max_x = floor(MAX(MAX(v1_x, v2_x), v3_x));
+        float min_y = floor(MIN(MIN(v1_y, v2_y), v3_y));
+        float max_y = floor(MAX(MAX(v1_y, v2_y), v3_y));
+
+        for (float y = min_y; y < max_y; y++) {
+            for (float x = min_x; x < max_x; x++) {
+                if (point_is_in_triangle(x, y, v1_x, v1_y, v2_x, v2_y, v3_x, v3_y, is_ccw)) {
+                    float v1_z = vertices[v1_index + 2];
+                    float v2_z = vertices[v2_index + 2];
+                    float v3_z = vertices[v3_index + 2];
+
+                    // Computer barycentric coordinates (a1, a2, a3)
+                    float denominator = (v2_y - v3_y) * (v1_x - v3_x) + (v3_x - v2_x) * (v1_y - v3_y);
+
+                    float a1 = ((v2_y - v3_y) * (x - v3_x) + (v3_x - v2_x) * (y - v3_y)) / denominator;
+                    float a2 = ((v3_y - v1_y) * (x - v3_x) + (v1_x - v3_x) * (y - v3_y)) / denominator;
+                    float a3 = 1 - a1 - a2;
+
+                    // Interpolate z value using barycentric coordinates
+                    float z = a1 * v1_z + a2 * v2_z + a3 * v3_z;
+
+                    int depth_index = (y * renderer->width + x);
+                    if (z < depth_buffer[depth_index]) {
+                        depth_buffer[depth_index] = z;
+
+                        int pixel_index = (y * (pitch / sizeof(uint32_t)) + x);
+
+                        uint8_t r = (uint8_t)triangles[triangle_index + 3];
+                        uint8_t g = (uint8_t)triangles[triangle_index + 4];
+                        uint8_t b = (uint8_t)triangles[triangle_index + 5];
+
+                        uint32_t color = (0xFF << 24) | (r << 16) | (g << 8) | b;
+
+                        buffer[pixel_index] = color;
+                    }
+                }
+            }
         }
     }
 
