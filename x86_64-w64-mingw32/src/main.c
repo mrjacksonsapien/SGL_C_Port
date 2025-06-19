@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "SGL.h"
-#include "SGL_Utils.h"
 
 int main(int argc, char* argv[]) {
     SGL_Scene *scene = SGL_CreateScene(); // Create scene attached to renderer
@@ -30,9 +29,6 @@ int main(int argc, char* argv[]) {
                 running = false;
                 break;
             }
-            if (event.key.key == SDLK_M) {
-                PrintMemoryUsage();
-            }
             // Add other events check here for event logic (eg: character moving based on user input)
         }
 
@@ -44,6 +40,7 @@ int main(int argc, char* argv[]) {
     // Don't forget to free your stuff here!
     SGL_FreeRenderer(renderer);
     SGL_FreeScene(scene);
+    SGL_FreeMesh(cube);
 
     return 0;
 }

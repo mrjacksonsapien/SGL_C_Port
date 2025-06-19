@@ -443,7 +443,7 @@ static size_t key_sizet_hash_function(void *key) {
     return *(size_t *)key;
 }
 
-static size_t add_vertex(float vertices[], SGL_HashMap *vertices_index_map, SGL_List *kept_vertices, size_t vertices_data_index) {
+static size_t add_vertex(SGL_List *vertices, SGL_HashMap *vertices_index_map, SGL_List *kept_vertices, size_t vertices_data_index) {
     void *found = SGL_HashMapGet(vertices_index_map, &vertices_data_index);
 
     if (found == NULL) {
@@ -451,7 +451,7 @@ static size_t add_vertex(float vertices[], SGL_HashMap *vertices_index_map, SGL_
 
         for (int i = 0; i < VERTEX_ARRAY_SIZE; i++) {
             float *value = malloc(sizeof(float)); // Allocate new memory because new vertices array will be generated, and older array might be destroyed
-            *value = vertices[vertices_data_index + i];
+            *value = *(float*)SGL_ListGet(vertices, vertices_data_index + i);
             SGL_ListAdd(kept_vertices, value);
         }
 
@@ -494,6 +494,8 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     SGL_List *kept_triangles = SGL_CreateList();
     SGL_List *kept_vertices = SGL_CreateList();
 
+    SGL_List *vertices_list = SGL_CreateListFromArray(vertices, size_vertices, sizeof(float));
+
     for (size_t i = 0; i < size_triangles / TRIANGLE_ARRAY_SIZE; i++)
     {
         size_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
@@ -527,20 +529,24 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
         float dot = (normal_x * view_direction_x) + (normal_y * view_direction_y) + (normal_z * view_direction_z);
 
         if (dot < 0) {
-            add_vertex(vertices, vertices_index_map, kept_vertices, vertex1_index);
-            add_vertex(vertices, vertices_index_map, kept_vertices, vertex2_index);
-            add_vertex(vertices, vertices_index_map, kept_vertices, vertex3_index);
+            add_vertex(vertices_list, vertices_index_map, kept_vertices, vertex1_index);
+            add_vertex(vertices_list, vertices_index_map, kept_vertices, vertex2_index);
+            add_vertex(vertices_list, vertices_index_map, kept_vertices, vertex3_index);
 
-            float *triangles_data_456 = malloc(sizeof(float) * 3);
-            triangles_data_456[0] = triangles[triangle_index + 3];
-            triangles_data_456[1] = triangles[triangle_index + 4];
-            triangles_data_456[2] = triangles[triangle_index + 5];
-
-            SGL_ListAdd(kept_triangles, &triangles_data_456[0]);
-            SGL_ListAdd(kept_triangles, &triangles_data_456[1]);
-            SGL_ListAdd(kept_triangles, &triangles_data_456[2]);
+            // Allocate each float individually for triangle color data
+            float *f3 = malloc(sizeof(float));
+            float *f4 = malloc(sizeof(float));
+            float *f5 = malloc(sizeof(float));
+            *f3 = triangles[triangle_index + 3];
+            *f4 = triangles[triangle_index + 4];
+            *f5 = triangles[triangle_index + 5];
+            SGL_ListAdd(kept_triangles, f3);
+            SGL_ListAdd(kept_triangles, f4);
+            SGL_ListAdd(kept_triangles, f5);
         }
     }
+
+    SGL_FreeList(vertices_list, true);
 
     *out_size_vertices = kept_vertices->size;
     *out_size_triangles = kept_triangles->size;
@@ -567,28 +573,28 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     SGL_FreeList(kept_triangles, true);
 }
 
-static bool planes_relation(float active_vertices[], size_t vertex_index, int i) {
-    float w = active_vertices[vertex_index + 3];
+static bool planes_relation(SGL_List *active_vertices, size_t vertex_index, int i) {
+    float w = *(float*)SGL_ListGet(active_vertices, vertex_index + 3);
 
     switch (i) {
         case 0: // Left
-            return active_vertices[vertex_index] >= w;
+            return *(float*)SGL_ListGet(active_vertices, vertex_index) >= w;
         case 1: // Right
-            return active_vertices[vertex_index] <= -w;
+            return *(float*)SGL_ListGet(active_vertices, vertex_index) <= -w;
         case 2: // Top
-            return active_vertices[vertex_index + 1] >= w;
+            return *(float*)SGL_ListGet(active_vertices, vertex_index + 1) >= w;
         case 3: // Bottom
-            return active_vertices[vertex_index + 1] <= -w;
+            return *(float*)SGL_ListGet(active_vertices, vertex_index + 1) <= -w;
         case 4: // Near
-            return active_vertices[vertex_index + 2] >= w;
+            return *(float*)SGL_ListGet(active_vertices, vertex_index + 2) >= w;
         case 5: // Far
-            return active_vertices[vertex_index + 2] <= -w;
+            return *(float*)SGL_ListGet(active_vertices, vertex_index + 2) <= -w;
         default:
             return false;
     }
 }
 
-static bool get_intersection(SGL_List *active_vertices, size_t p1_index, size_t p2_index, int plane_index, float out_intersection[4]) {
+static bool get_intersection(SGL_List *active_vertices, float p1_index, float p2_index, int plane_index, float out_intersection[4]) {
     float plane[4];
     memcpy(plane, planes_constants[plane_index], sizeof(float) * 4);
 
@@ -619,6 +625,30 @@ static bool get_intersection(SGL_List *active_vertices, size_t p1_index, size_t 
     return true;
 }
 
+static void create_new_triangle(SGL_List *active_triangles, SGL_List *next_triangles, float v1_index, float v2_index, float v3_index, size_t og_tri_index) {
+    // Allocate and add each float individually
+    float *f0 = malloc(sizeof(float));
+    float *f1 = malloc(sizeof(float));
+    float *f2 = malloc(sizeof(float));
+    float *f3 = malloc(sizeof(float));
+    float *f4 = malloc(sizeof(float));
+    float *f5 = malloc(sizeof(float));
+
+    *f0 = v1_index;
+    *f1 = v2_index;
+    *f2 = v3_index;
+    *f3 = *(float*)SGL_ListGet(active_triangles, og_tri_index + 3);
+    *f4 = *(float*)SGL_ListGet(active_triangles, og_tri_index + 4);
+    *f5 = *(float*)SGL_ListGet(active_triangles, og_tri_index + 5);
+
+    SGL_ListAdd(next_triangles, f0);
+    SGL_ListAdd(next_triangles, f1);
+    SGL_ListAdd(next_triangles, f2);
+    SGL_ListAdd(next_triangles, f3);
+    SGL_ListAdd(next_triangles, f4);
+    SGL_ListAdd(next_triangles, f5);
+}
+
 static void clip(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
     SGL_List *active_triangles = SGL_CreateListFromArray(triangles, size_triangles, sizeof(float));
     SGL_List *active_vertices = SGL_CreateListFromArray(vertices, size_vertices, sizeof(float));
@@ -630,8 +660,119 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
     for (size_t i = 0; i < 6; i++)
     {
         SGL_HashMap *vertices_index_map = SGL_CreateHashMap(key_sizet_equals_function, key_sizet_hash_function);
+
+        for (size_t j = 0; j < active_triangles->size / TRIANGLE_ARRAY_SIZE; j++)
+        {
+            size_t triangle_index = j * TRIANGLE_ARRAY_SIZE;
+            float v1_index = *(float*)SGL_ListGet(active_triangles, triangle_index);
+            float v2_index = *(float*)SGL_ListGet(active_triangles, triangle_index + 1);
+            float v3_index = *(float*)SGL_ListGet(active_triangles, triangle_index + 2);
+
+            SGL_List *inside = SGL_CreateList();
+            SGL_List *outside = SGL_CreateList();
+
+            if (planes_relation(active_vertices, v1_index, i)) {
+                SGL_ListAdd(inside, &v1_index);
+            } else {
+                SGL_ListAdd(outside, &v1_index);
+            }
+
+            if (planes_relation(active_vertices, v2_index, i)) {
+                SGL_ListAdd(inside, &v2_index);
+            } else {
+                SGL_ListAdd(outside, &v2_index);
+            }
+
+            if (planes_relation(active_vertices, v3_index, i)) {
+                SGL_ListAdd(inside, &v3_index);
+            } else {
+                SGL_ListAdd(outside, &v3_index);
+            }
+
+            if (inside->size == 3) {
+                create_new_triangle(
+                    active_triangles, 
+                    next_triangles, 
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 0)),
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 1)),
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 2)),
+                    triangle_index
+                );
+            } else if (inside->size == 2) {
+                float intersection1[4];
+                float intersection2[4];
+
+                get_intersection(active_vertices, *(float*)SGL_ListGet(inside, 0), *(float*)SGL_ListGet(outside, 0), i, intersection1);
+                get_intersection(active_vertices, *(float*)SGL_ListGet(inside, 1), *(float*)SGL_ListGet(outside, 0), i, intersection2);
+
+                create_new_triangle(
+                    active_triangles, 
+                    next_triangles, 
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 0)), 
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 1)), 
+                    (float)create_vertex(next_vertices, intersection1), 
+                    triangle_index
+                );
+
+                create_new_triangle(
+                    active_triangles,
+                    next_triangles,
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 1)),
+                    (float)create_vertex(next_vertices, intersection2),
+                    (float)create_vertex(next_vertices, intersection1),
+                    triangle_index
+                );
+            } else if (inside->size == 1) {
+                float intersection1[4];
+                float intersection2[4];
+
+                get_intersection(active_vertices, *(float*)SGL_ListGet(inside, 0), *(float*)SGL_ListGet(outside, 0), i, intersection1);
+                get_intersection(active_vertices, *(float*)SGL_ListGet(inside, 0), *(float*)SGL_ListGet(outside, 1), i, intersection2);
+
+                create_new_triangle(
+                    active_triangles,
+                    next_triangles,
+                    (float)add_vertex(active_vertices, vertices_index_map, next_vertices, *(float*)SGL_ListGet(inside, 0)),
+                    (float)create_vertex(next_vertices, intersection2),
+                    (float)create_vertex(next_vertices, intersection1),
+                    triangle_index
+                );
+            }
+        }
+
         SGL_FreeHashMap(vertices_index_map);
+        SGL_FreeList(active_triangles, true);
+        active_triangles = next_triangles;
+        SGL_FreeList(active_vertices, true);
+        active_vertices = next_vertices;
+        next_triangles = SGL_CreateList();
+        next_vertices = SGL_CreateList();
     }
+
+    *out_size_vertices = active_vertices->size;
+    *out_size_triangles = active_triangles->size;
+
+    void **vertices_ptrs = SGL_ListToArray(active_vertices);
+    void **triangles_ptrs = SGL_ListToArray(active_triangles);
+
+    *out_vertices = malloc(sizeof(float) * (*out_size_vertices));
+    for (size_t i = 0; i < *out_size_vertices; i++)
+    {
+        (*out_vertices)[i] = *(float*)(vertices_ptrs[i]);
+    }
+    free(vertices_ptrs);
+
+    *out_triangles = malloc(sizeof(float) * (*out_size_triangles));
+    for (size_t i = 0; i < *out_size_triangles; i++)
+    {
+        (*out_triangles)[i] = *(float*)(triangles_ptrs[i]);
+    }
+    free(triangles_ptrs);
+
+    SGL_FreeList(active_triangles, true);
+    SGL_FreeList(active_vertices, true);
+    SGL_FreeList(next_triangles, true);
+    SGL_FreeList(next_vertices, true);
 }
 
 /**
