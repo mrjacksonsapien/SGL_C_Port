@@ -118,14 +118,14 @@ typedef struct {
     SGL_Color color;
 } SGL_Triangle;
 
-SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], size_t vertices_count, SGL_Triangle triangles[], size_t triangles_count, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale);
+SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], float_safe_index_t vertices_count, SGL_Triangle triangles[], float_safe_index_t triangles_count, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale);
 /**
  * Free a mesh passed as argument (All vertices and triangles are freed too).
  */
 void SGL_FreeMesh(SGL_Mesh *mesh);
 
 // Mesh Templates
-SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale);
+SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position);
 
 /**
  * Renderer containing the SDL_Window, SDL_Renderer and SDL_Texture buffer. Members were hidden to

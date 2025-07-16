@@ -17,6 +17,7 @@ const SGL_Color SGL_BLUE = {.r = 0.0f, .g = 0.0f, .b = 1.0f};
 // Engine constants
 static const int VERTEX_ARRAY_SIZE = 4;
 static const int TRIANGLE_ARRAY_SIZE = 6;
+
 static const float planes_constants[6][4] = {
     {1.0f, 0.0f, 0.0f, -1.0f}, // Left
     {-1.0f, 0.0f, 0.0f, -1.0f}, // Right
@@ -31,17 +32,17 @@ float SGL_DegToRad(float degrees) {
 }
 
 float SGL_Cot(float degrees) {
-    return 1.0f * tan(SGL_DegToRad(degrees));
+    return 1.0f / tan(SGL_DegToRad(degrees));
 }
 
-SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], size_t vertices_count, SGL_Triangle triangles[], size_t triangles_count, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
+SGL_Mesh* SGL_CreateMesh(SGL_Vertex vertices[], float_safe_index_t vertices_count, SGL_Triangle triangles[], float_safe_index_t triangles_count, SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
     SGL_List *vertices_list = SGL_CreateListFromArray(vertices, vertices_count, sizeof(SGL_Vertex));
     SGL_List *triangles_list = SGL_CreateListFromArray(triangles, triangles_count, sizeof(SGL_Triangle));
 
     SGL_Mesh *mesh = malloc(sizeof(SGL_Mesh));
     mesh->vertices = vertices_list;
 
-    for (size_t i = 0; i < vertices_list->size; i++)
+    for (float_safe_index_t i = 0; i < vertices_list->size; i++)
     {
         SGL_Vertex *vertex = (SGL_Vertex *)vertices_list->items[i];
         vertex->mesh = mesh;
@@ -62,7 +63,7 @@ void SGL_FreeMesh(SGL_Mesh *mesh) {
     free(mesh);
 }
 
-SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_Vector3 scale) {
+SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position) {
     SGL_Vertex vertices[] = {
         {.position = {-1.0f, 1.0f, -1.0f}},
         {.position = {1.0f, 1.0f, -1.0f}},
@@ -89,10 +90,10 @@ SGL_Mesh* SGL_CreateCubeMesh(SGL_Vector3 position, SGL_Vector3 orientation, SGL_
         {.vertex1 = &vertices[6], .vertex2 = &vertices[2], .vertex3 = &vertices[1], .color = SGL_GREEN}
     };
 
-    size_t vertices_count = sizeof(vertices) / sizeof(SGL_Vertex);
-    size_t triangles_count = sizeof(triangles) /sizeof(SGL_Triangle);
+    float_safe_index_t vertices_count = sizeof(vertices) / sizeof(SGL_Vertex);
+    float_safe_index_t triangles_count = sizeof(triangles) /sizeof(SGL_Triangle);
 
-    return SGL_CreateMesh(vertices, vertices_count, triangles, triangles_count, position, orientation, scale);
+    return SGL_CreateMesh(vertices, vertices_count, triangles, triangles_count, position, (SGL_Vector3){.x = 0.0f, .y = 0.0f, .z = 0.0f}, (SGL_Vector3){.x = 0.0f, .y = 0.0f, .z = 0.0f});
 }
 
 SGL_Scene* SGL_CreateScene() {
@@ -102,8 +103,9 @@ SGL_Scene* SGL_CreateScene() {
     *camera = (SGL_Camera){
         .near = 0.1f, 
         .far = 100.0f, 
-        .position = (SGL_Vector3){.x = 0.0f, .y = 0.0f, .z = 0.0f},
-        .orientation = (SGL_Vector3){.x = 0.0f, .y = 0.0f, .z = 0.0f}
+        .fov = 90.0f,
+        .position = {0.0f, 0.0f, 0.0f},
+        .orientation = {0.0f, 0.0f, 0.0f}
     };
     scene->currentCamera = camera;
     return scene;
@@ -115,7 +117,7 @@ void SGL_FreeScene(SGL_Scene *scene) {
     free(scene);
 }
 
-static void multiply_matrix_with_vertex(float m[16], size_t vertex_index, float vertices_data[]) {
+static void multiply_matrix_with_vertex(float m[16], float_safe_index_t vertex_index, float vertices_data[]) {
     float x = vertices_data[vertex_index];
     float y = vertices_data[vertex_index + 1];
     float z = vertices_data[vertex_index + 2];
@@ -127,8 +129,8 @@ static void multiply_matrix_with_vertex(float m[16], size_t vertex_index, float 
     vertices_data[vertex_index + 3] = x * m[3] + y * m[7] + z * m[11] + w * m[15];
 }
 
-static void multiply_matrix_with_vertices(float m[16], float vertices_data[], size_t vertices_size) {
-    for (size_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
+static void multiply_matrix_with_vertices(float m[16], float vertices_data[], float_safe_index_t vertices_size) {
+    for (float_safe_index_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
     {
         multiply_matrix_with_vertex(m, i * VERTEX_ARRAY_SIZE, vertices_data);
     }
@@ -352,7 +354,7 @@ SDL_Window* SGL_RendererGetWindow(SGL_Renderer *renderer) {
 }
 
 static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera, float out[16]) {
-    float aspectRatio = renderer->width * renderer->height;
+    float aspectRatio = (float)renderer->width / (float)renderer->height;
 
     float mat[16] = {
         SGL_Cot(camera->fov / 2.0f) / aspectRatio, 0.0f, 0.0f, 0.0f,
@@ -377,23 +379,23 @@ static void create_projection_matrix(SGL_Renderer *renderer, SGL_Camera *camera,
  * \param out_triangles Pointer to the output array of triangles.
  * \param size_triangles Pointer to the size of the output triangles array.
  */
-static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices, size_t *size_vertices, float **out_triangles, size_t *size_triangles) {
+static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices, float_safe_index_t *size_vertices, float **out_triangles, float_safe_index_t *size_triangles) {
     SGL_List *vertices = SGL_CreateList();
     SGL_List *triangles = SGL_CreateList();
 
     // Break down all meshes data into two lists
-    for (size_t i = 0; i < meshes->size; i++)
+    for (float_safe_index_t i = 0; i < meshes->size; i++)
     {
         SGL_Mesh *mesh = (SGL_Mesh*)SGL_ListGet(meshes, i);
         create_transformation_matrix(mesh->position, mesh->orientation, mesh->scale, mesh->transformation_matrix);
 
-        for (size_t j = 0; j < mesh->triangles->size; j++)
+        for (float_safe_index_t j = 0; j < mesh->triangles->size; j++)
         {
             SGL_Triangle *triangle = (SGL_Triangle*)SGL_ListGet(mesh->triangles, j);
             SGL_ListAdd(triangles, triangle);
         }
 
-        for (size_t j = 0; j < mesh->vertices->size; j++) {
+        for (float_safe_index_t j = 0; j < mesh->vertices->size; j++) {
             SGL_Vertex *vertex = (SGL_Vertex*)SGL_ListGet(mesh->vertices, j);
             SGL_ListAdd(vertices, vertex);
         }
@@ -402,10 +404,10 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
     *size_triangles = triangles->size * TRIANGLE_ARRAY_SIZE;
     *out_triangles = malloc(sizeof(float) * (*size_triangles));
 
-    for (size_t i = 0; i < triangles->size; i++)
+    for (float_safe_index_t i = 0; i < triangles->size; i++)
     {
         SGL_Triangle *triangle = (SGL_Triangle*)SGL_ListGet(triangles, i);
-        size_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
+        float_safe_index_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
 
         (*out_triangles)[triangle_index] = SGL_ListIndexOf(vertices, triangle->vertex1) * TRIANGLE_ARRAY_SIZE;
         (*out_triangles)[triangle_index + 1] = SGL_ListIndexOf(vertices, triangle->vertex2) * TRIANGLE_ARRAY_SIZE;
@@ -418,10 +420,10 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
     *size_vertices = vertices->size * VERTEX_ARRAY_SIZE;
     *out_vertices = malloc(sizeof(float) * (*size_vertices));
 
-    for (size_t i = 0; i < vertices->size; i++)
+    for (float_safe_index_t i = 0; i < vertices->size; i++)
     {
         SGL_Vertex *vertex = (SGL_Vertex*)SGL_ListGet(vertices, i);
-        size_t vertex_index = i * VERTEX_ARRAY_SIZE;
+        float_safe_index_t vertex_index = i * VERTEX_ARRAY_SIZE;
 
         // Conversion from local space to world space
         float vertex_data[] = {vertex->position.x, vertex->position.y, vertex->position.z, 1};
@@ -438,18 +440,18 @@ static void convert_scene_to_flat_arrays(SGL_List *meshes, float **out_vertices,
 }
 
 static bool key_sizet_equals_function(void *a, void *b) {
-    return *(size_t *)a == *(size_t *)b;
+    return *(float_safe_index_t *)a == *(float_safe_index_t *)b;
 }
 
-static size_t key_sizet_hash_function(void *key) {
-    return *(size_t *)key;
+static float_safe_index_t key_sizet_hash_function(void *key) {
+    return *(float_safe_index_t *)key;
 }
 
-static size_t add_vertex(SGL_List *vertices, SGL_HashMap *vertices_index_map, SGL_List *kept_vertices, size_t vertices_data_index) {
+static float_safe_index_t add_vertex(SGL_List *vertices, SGL_HashMap *vertices_index_map, SGL_List *kept_vertices, float_safe_index_t vertices_data_index) {
     void *found = SGL_HashMapGet(vertices_index_map, &vertices_data_index);
 
     if (found == NULL) {
-        size_t next_index = kept_vertices->size;
+        float_safe_index_t next_index = kept_vertices->size;
 
         for (int i = 0; i < VERTEX_ARRAY_SIZE; i++) {
             float *value = malloc(sizeof(float)); // Allocate new memory because new vertices array will be generated, and older array might be destroyed
@@ -458,21 +460,21 @@ static size_t add_vertex(SGL_List *vertices, SGL_HashMap *vertices_index_map, SG
         }
 
         // Store the new index in the map
-        size_t *index_ptr = malloc(sizeof(size_t));
+        float_safe_index_t *index_ptr = malloc(sizeof(float_safe_index_t));
         *index_ptr = next_index;
         SGL_HashMapPut(vertices_index_map, &vertices_data_index, index_ptr);
 
         return next_index;
     } else {
-        return *(size_t *)found;
+        return *(float_safe_index_t *)found;
     }
 }
 
-static size_t create_vertex(SGL_List *next_vertices, float vertex[VERTEX_ARRAY_SIZE]) {
-    size_t next_index = next_vertices->size;
+static float_safe_index_t create_vertex(SGL_List *next_vertices, float vertex[VERTEX_ARRAY_SIZE]) {
+    float_safe_index_t next_index = next_vertices->size;
     float *vertex_data = malloc(sizeof(float) * VERTEX_ARRAY_SIZE);
 
-    for (size_t i = 0; i < VERTEX_ARRAY_SIZE; i++)
+    for (float_safe_index_t i = 0; i < VERTEX_ARRAY_SIZE; i++)
     {
         vertex_data[i] = vertex[i];
         SGL_ListAdd(next_vertices, &vertex_data[i]);
@@ -481,30 +483,29 @@ static size_t create_vertex(SGL_List *next_vertices, float vertex[VERTEX_ARRAY_S
     return next_index;
 }
 
-static void get_xyz(float vertices[], size_t vertex_index, float out_xyz[3]) {
-    for (size_t i = 0; i < 3; i++) {
+static void get_xyz(float vertices[], float_safe_index_t vertex_index, float out_xyz[3]) {
+    for (float_safe_index_t i = 0; i < 3; i++) {
         out_xyz[i] = vertices[vertex_index + i];
     }
 }
 
 /**
  * Removes the triangles and their vertices for those facing away from the camera (Triangle facing direction is defined by the order of the vertices in the triangle).
- * Function will free allocated memory from the previous arrays.
  */
-static void cull(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
+static void cull(float vertices[], float_safe_index_t size_vertices, float triangles[], float_safe_index_t size_triangles, float **out_vertices, float_safe_index_t *out_size_vertices, float **out_triangles, float_safe_index_t *out_size_triangles) {
     SGL_HashMap *vertices_index_map = SGL_CreateHashMap(key_sizet_equals_function, key_sizet_hash_function);
     SGL_List *kept_triangles = SGL_CreateList();
     SGL_List *kept_vertices = SGL_CreateList();
 
     SGL_List *vertices_list = SGL_CreateListFromArray(vertices, size_vertices, sizeof(float));
 
-    for (size_t i = 0; i < size_triangles / TRIANGLE_ARRAY_SIZE; i++)
+    for (float_safe_index_t i = 0; i < size_triangles / TRIANGLE_ARRAY_SIZE; i++)
     {
-        size_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
+        float_safe_index_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
 
-        size_t vertex1_index = triangles[triangle_index];
-        size_t vertex2_index = triangles[triangle_index + 1];
-        size_t vertex3_index = triangles[triangle_index + 2];
+        float_safe_index_t vertex1_index = triangles[triangle_index];
+        float_safe_index_t vertex2_index = triangles[triangle_index + 1];
+        float_safe_index_t vertex3_index = triangles[triangle_index + 2];
 
         float vertex1_xyz[3], vertex2_xyz[3], vertex3_xyz[3];
         get_xyz(vertices, vertex1_index, vertex1_xyz);
@@ -557,25 +558,25 @@ static void cull(float vertices[], size_t size_vertices, float triangles[], size
     void **triangles_ptrs = SGL_ListToArray(kept_triangles);
 
     *out_vertices = malloc(sizeof(float) * (*out_size_vertices));
-    for (size_t i = 0; i < *out_size_vertices; i++)
+    for (float_safe_index_t i = 0; i < *out_size_vertices; i++)
     {
         (*out_vertices)[i] = *(float*)(vertices_ptrs[i]);
     }
     free(vertices_ptrs);
 
     *out_triangles = malloc(sizeof(float) * (*out_size_triangles));
-    for (size_t i = 0; i < *out_size_triangles; i++)
+    for (float_safe_index_t i = 0; i < *out_size_triangles; i++)
     {
         (*out_triangles)[i] = *(float*)(triangles_ptrs[i]);
     }
     free(triangles_ptrs);
 
-    SGL_FreeHashMap(vertices_index_map);
+    SGL_FreeHashMap(vertices_index_map, true);
     SGL_FreeList(kept_vertices, true);
     SGL_FreeList(kept_triangles, true);
 }
 
-static bool planes_relation(SGL_List *active_vertices, size_t vertex_index, int i) {
+static bool planes_relation(SGL_List *active_vertices, float_safe_index_t vertex_index, int i) {
     float w = *(float*)SGL_ListGet(active_vertices, vertex_index + 3);
 
     switch (i) {
@@ -627,7 +628,7 @@ static bool get_intersection(SGL_List *active_vertices, float p1_index, float p2
     return true;
 }
 
-static void create_new_triangle(SGL_List *active_triangles, SGL_List *next_triangles, float v1_index, float v2_index, float v3_index, size_t og_tri_index) {
+static void create_new_triangle(SGL_List *active_triangles, SGL_List *next_triangles, float v1_index, float v2_index, float v3_index, float_safe_index_t og_tri_index) {
     // Allocate and add each float individually
     float *f0 = malloc(sizeof(float));
     float *f1 = malloc(sizeof(float));
@@ -651,7 +652,7 @@ static void create_new_triangle(SGL_List *active_triangles, SGL_List *next_trian
     SGL_ListAdd(next_triangles, f5);
 }
 
-static void clip(float vertices[], size_t size_vertices, float triangles[], size_t size_triangles, float **out_vertices, size_t *out_size_vertices, float **out_triangles, size_t *out_size_triangles) {
+static void clip(float vertices[], float_safe_index_t size_vertices, float triangles[], float_safe_index_t size_triangles, float **out_vertices, float_safe_index_t *out_size_vertices, float **out_triangles, float_safe_index_t *out_size_triangles) {
     SGL_List *active_triangles = SGL_CreateListFromArray(triangles, size_triangles, sizeof(float));
     SGL_List *active_vertices = SGL_CreateListFromArray(vertices, size_vertices, sizeof(float));
 
@@ -659,13 +660,13 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
     SGL_List *next_vertices = SGL_CreateList();
 
     // Iterate over each plane
-    for (size_t i = 0; i < 6; i++)
+    for (float_safe_index_t i = 0; i < 6; i++)
     {
         SGL_HashMap *vertices_index_map = SGL_CreateHashMap(key_sizet_equals_function, key_sizet_hash_function);
 
-        for (size_t j = 0; j < active_triangles->size / TRIANGLE_ARRAY_SIZE; j++)
+        for (float_safe_index_t j = 0; j < active_triangles->size / TRIANGLE_ARRAY_SIZE; j++)
         {
-            size_t triangle_index = j * TRIANGLE_ARRAY_SIZE;
+            float_safe_index_t triangle_index = j * TRIANGLE_ARRAY_SIZE;
             float v1_index = *(float*)SGL_ListGet(active_triangles, triangle_index);
             float v2_index = *(float*)SGL_ListGet(active_triangles, triangle_index + 1);
             float v3_index = *(float*)SGL_ListGet(active_triangles, triangle_index + 2);
@@ -742,7 +743,7 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
             }
         }
 
-        SGL_FreeHashMap(vertices_index_map);
+        SGL_FreeHashMap(vertices_index_map, true);
         SGL_FreeList(active_triangles, true);
         active_triangles = next_triangles;
         SGL_FreeList(active_vertices, true);
@@ -758,14 +759,14 @@ static void clip(float vertices[], size_t size_vertices, float triangles[], size
     void **triangles_ptrs = SGL_ListToArray(active_triangles);
 
     *out_vertices = malloc(sizeof(float) * (*out_size_vertices));
-    for (size_t i = 0; i < *out_size_vertices; i++)
+    for (float_safe_index_t i = 0; i < *out_size_vertices; i++)
     {
         (*out_vertices)[i] = *(float*)(vertices_ptrs[i]);
     }
     free(vertices_ptrs);
 
     *out_triangles = malloc(sizeof(float) * (*out_size_triangles));
-    for (size_t i = 0; i < *out_size_triangles; i++)
+    for (float_safe_index_t i = 0; i < *out_size_triangles; i++)
     {
         (*out_triangles)[i] = *(float*)(triangles_ptrs[i]);
     }
@@ -808,10 +809,10 @@ static bool handle_sdl_events(SGL_Renderer *renderer, SDL_Event *event) {
     return true;
 }
 
-static void apply_perspective_division_clip_vertices(float vertices[], size_t vertices_size) {
-    for (size_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
+static void apply_perspective_division_clip_vertices(float vertices[], float_safe_index_t vertices_size) {
+    for (float_safe_index_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
     {
-        size_t vertex_index = i * VERTEX_ARRAY_SIZE;
+        float_safe_index_t vertex_index = i * VERTEX_ARRAY_SIZE;
         float w = vertices[vertex_index + 3];
 
         vertices[vertex_index] /= w;
@@ -821,10 +822,10 @@ static void apply_perspective_division_clip_vertices(float vertices[], size_t ve
     }
 }
 
-static void map_ndc_vertices_to_screen_coordinates(SGL_Renderer *renderer, float vertices[], size_t vertices_size) {
-    for (size_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
+static void map_ndc_vertices_to_screen_coordinates(SGL_Renderer *renderer, float vertices[], float_safe_index_t vertices_size) {
+    for (float_safe_index_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
     {
-        size_t vertex_index = i * VERTEX_ARRAY_SIZE;
+        float_safe_index_t vertex_index = i * VERTEX_ARRAY_SIZE;
 
         vertices[vertex_index] = (vertices[vertex_index] + 1) / 2 * renderer->width;
         vertices[vertex_index + 1] = (1 - vertices[vertex_index + 1]) / 2 * renderer->height;
@@ -850,7 +851,7 @@ static bool is_triangle_ccw(float ax, float ay, float bx, float by, float cx, fl
     return signed_area > 0;
 }
 
-static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t vertices_size, float triangles[], size_t triangles_size) {
+static bool render_triangles(SGL_Renderer *renderer, float vertices[], float_safe_index_t vertices_size, float triangles[], float_safe_index_t triangles_size) {
     void *pixels;
     int pitch;
 
@@ -879,8 +880,8 @@ static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t ve
         depth_buffer[i] = FLT_MAX;
     }
 
-    for (size_t i = 0; i < triangles_size / TRIANGLE_ARRAY_SIZE; i++) {
-        size_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
+    for (float_safe_index_t i = 0; i < triangles_size / TRIANGLE_ARRAY_SIZE; i++) {
+        float_safe_index_t triangle_index = i * TRIANGLE_ARRAY_SIZE;
 
         int v1_index = (int)triangles[triangle_index];
         int v2_index = (int)triangles[triangle_index + 1];
@@ -947,6 +948,21 @@ static bool render_triangles(SGL_Renderer *renderer, float vertices[], size_t ve
     return true;
 }
 
+static void stage_debug_print(char *space, float_safe_index_t vertices_size, float_safe_index_t triangles_size, float *vertices, float *triangles) {
+    if (vertices_size != 0 || triangles_size != 0) {
+        printf("(%s) Vertices: %" PRIu32 ", Triangles: %" PRIu32 "\n\n", space, vertices_size / VERTEX_ARRAY_SIZE, triangles_size / TRIANGLE_ARRAY_SIZE);
+
+        printf("Vertices: \n\n");
+        for (float_safe_index_t i = 0; i < vertices_size / VERTEX_ARRAY_SIZE; i++)
+        {
+            float_safe_index_t vertex_index = i * VERTEX_ARRAY_SIZE;
+            printf("%" PRIu32 " - x: %f, y: %f, z: %f, w: %f\n", i, vertices[vertex_index], vertices[vertex_index + 1], vertices[vertex_index + 2], vertices[vertex_index + 3]);
+        }
+
+        printf("\n\n");
+    }
+}
+
 bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     if (!handle_sdl_events(renderer, event)) {
         return false;
@@ -958,7 +974,7 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
 
     // Convert scene into flat arrays for vertices and triangles and local space -> world space
     float *vertices, *triangles;
-    size_t vertices_size, triangles_size;
+    float_safe_index_t vertices_size, triangles_size;
     convert_scene_to_flat_arrays(renderer->scene->meshes, &vertices, &vertices_size, &triangles, &triangles_size);
 
     // World space -> View space
@@ -966,10 +982,13 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
     create_view_matrix(renderer->scene->currentCamera, view_matrix);
     multiply_matrix_with_vertices(view_matrix, vertices, vertices_size);
 
+    // TODO : Fix culling
     // Cull backface triangles
     float *culled_vertices, *culled_triangles;
-    size_t culled_vertices_size, culled_triangles_size;
+    float_safe_index_t culled_vertices_size, culled_triangles_size;
     cull(vertices, vertices_size, triangles, triangles_size, &culled_vertices, &culled_vertices_size, &culled_triangles, &culled_triangles_size);
+
+    stage_debug_print("View space: After culling", culled_vertices_size, culled_triangles_size, culled_vertices, culled_triangles);
 
     // Free world space data (the moment you don't need it anymore, don't wait and forget)
     free_pipeline_step(vertices, triangles);
@@ -981,7 +1000,7 @@ bool SGL_Render(SGL_Renderer *renderer, SDL_Event *event) {
 
     // Clip triangles
     float *clipped_vertices, *clipped_triangles;
-    size_t clipped_vertices_size, clipped_triangles_size;
+    float_safe_index_t clipped_vertices_size, clipped_triangles_size;
     clip(culled_vertices, culled_vertices_size, culled_triangles, culled_triangles_size, &clipped_vertices, &clipped_vertices_size, &clipped_triangles, &clipped_triangles_size);
 
     // Free view space data

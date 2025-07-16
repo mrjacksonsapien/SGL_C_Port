@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Add meshes to scene
-    SGL_Mesh *cube = SGL_CreateCubeMesh((SGL_Vector3){.x = 0, .y = 0, .z = 3}, (SGL_Vector3){.x = 0, .y = 0, .z = 0}, (SGL_Vector3){.x = 1, .y = 1, .z = 1});
+    SGL_Mesh *cube = SGL_CreateCubeMesh((SGL_Vector3){0.0f, 0.0f, 3.0f});
     SGL_ListAdd(scene->meshes, cube);
 
     bool running = true;
@@ -28,6 +28,25 @@ int main(int argc, char* argv[]) {
             if (!SGL_Render(renderer, &event)) {
                 running = false;
                 break;
+            }
+            if (event.type == SDL_EVENT_KEY_DOWN) {
+                switch (event.key.key)
+                {
+                case SDLK_W:
+                    scene->currentCamera->position.z += 0.01f;
+                    break;
+                case SDLK_S:
+                    scene->currentCamera->position.z -= 0.01f;
+                    break;
+                case SDLK_LEFT:
+                    scene->currentCamera->orientation.y += 0.01f;
+                    break;
+                case SDLK_RIGHT:
+                    scene->currentCamera->orientation.y -= 0.01f;
+                    break;
+                default:
+                    break;
+                }
             }
             // Add other events check here for event logic (eg: character moving based on user input)
         }
